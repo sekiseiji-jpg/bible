@@ -30,10 +30,13 @@ def main():
     out = {}
     for bid in range(1, 67):
         summary, verses = data[bid]
-        out[str(bid)] = {
-            "s": summary,
-            "v": [{"c": c, "v": v, "n": note} for (c, v, note) in verses],
-        }
+        items = []
+        for (c, v, note, detail, refs) in verses:
+            item = {"c": c, "v": v, "n": note, "d": detail}
+            if refs:
+                item["r"] = [[rb, rc, rv] for (rb, rc, rv) in refs]
+            items.append(item)
+        out[str(bid)] = {"s": summary, "v": items}
 
     path = os.path.join(ROOT, "data", "keys.js")
     body = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
@@ -41,8 +44,11 @@ def main():
         f.write("BIBLE_KEYS(%s);\n" % body)
 
     total = sum(len(v["v"]) for v in out.values())
-    print("data/keys.js  %d巻 %d聖句  %.1f KB"
-          % (len(out), total, os.path.getsize(path) / 1024))
+    refs = sum(len(k.get("r", [])) for v in out.values() for k in v["v"])
+    chars = sum(len(k["d"]) for v in out.values() for k in v["v"])
+    print("data/keys.js  %d巻 %d聖句 関連%d件  詳解%d字（平均%d字）  %.1f KB"
+          % (len(out), total, refs, chars, chars // total,
+             os.path.getsize(path) / 1024))
 
 
 if __name__ == "__main__":

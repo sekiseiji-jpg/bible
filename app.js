@@ -934,7 +934,7 @@
   function loadKeys() {
     if (KEYS) return Promise.resolve(KEYS);
     if (!keysLoading) {
-      keysLoading = loadScript('data/keys.js?v=1').then(function () { return KEYS; });
+      keysLoading = loadScript('data/keys.js?v=2').then(function () { return KEYS; });
     }
     return keysLoading;
   }
@@ -969,12 +969,23 @@
     $('keys-list').innerHTML = entry.v.map(function (k) {
       var ch = chapters[k.c - 1] || [];
       var raw = ch[k.v - 1] || '';
+
+      var links = (k.r || []).map(function (r) {
+        var rb = BOOK[r[0]];
+        if (!rb) return '';
+        return '<button class="key-link" data-book="' + r[0] + '" data-chap="' + r[1] +
+          '" data-verse="' + r[2] + '">' + esc(rb.ja + ' ' + r[1] + ':' + r[2]) + '</button>';
+      }).filter(Boolean).join('');
+
       return '<div class="key-item">' +
         '<button class="key-ref" data-book="' + book + '" data-chap="' + k.c +
         '" data-verse="' + k.v + '">' + esc(b.ja + ' ' + k.c + '章' + k.v + '節') +
         ' <span class="key-go">開く ›</span></button>' +
         (raw ? '<blockquote class="key-text">' + toHtml(raw) + '</blockquote>' : '') +
         '<p class="key-note">' + esc(k.n) + '</p>' +
+        (k.d ? '<p class="key-detail">' + esc(k.d) + '</p>' : '') +
+        (links ? '<div class="key-links"><span class="key-links-label">あわせて読む</span>' +
+          links + '</div>' : '') +
         '</div>';
     }).join('');
   }
