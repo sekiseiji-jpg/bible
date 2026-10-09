@@ -918,6 +918,65 @@
     return out + esc(text.slice(at));
   }
 
+  /* ---------------------------------------------------- 重要聖句 */
+
+  /* 要旨と解説は書き下ろし（tools/keys_ot.py・keys_nt.py）。
+     聖句の本文は持たず、口語訳のデータから引いて表示する。
+     節番号は口語訳の章立てに合わせてある。 */
+
+  var KEYS = null;
+  var keysLoading = null;
+
+  window.BIBLE_KEYS = function (d) { KEYS = d; };
+
+  function loadKeys() {
+    if (KEYS) return Promise.resolve(KEYS);
+    if (!keysLoading) {
+      keysLoading = loadScript('data/keys.js?v=1').then(function () { return KEYS; });
+    }
+    return keysLoading;
+  }
+
+  function openKeys() {
+    var book = S.book;
+    busy('重要聖句を読み込んでいます…');
+    Promise.all([loadKeys(), loadBook('ja', book)]).then(function () {
+      idle();
+      renderKeys(book);
+      $('keys').hidden = false;
+    }, function () {
+      idle();
+      toast('重要聖句を読み込めませんでした');
+    });
+  }
+
+  function renderKeys(book) {
+    var b = BOOK[book];
+    var entry = KEYS && KEYS[String(book)];
+    $('keys-title').textContent = '⭐ ' + b.ja + ' の重要聖句';
+
+    if (!entry) {
+      $('keys-sum').textContent = '';
+      $('keys-list').innerHTML = '<p class="note dim">この書の聖句はまだ用意していません。</p>';
+      return;
+    }
+
+    $('keys-sum').textContent = entry.s;
+    var chapters = (DATA.ja || {})[book] || [];
+
+    $('keys-list').innerHTML = entry.v.map(function (k) {
+      var ch = chapters[k.c - 1] || [];
+      var raw = ch[k.v - 1] || '';
+      return '<div class="key-item">' +
+        '<button class="key-ref" data-book="' + book + '" data-chap="' + k.c +
+        '" data-verse="' + k.v + '">' + esc(b.ja + ' ' + k.c + '章' + k.v + '節') +
+        ' <span class="key-go">開く ›</span></button>' +
+        (raw ? '<blockquote class="key-text">' + toHtml(raw) + '</blockquote>' : '') +
+        '<p class="key-note">' + esc(k.n) + '</p>' +
+        '</div>';
+    }).join('');
+  }
+
   /* ------------------------------------------------------ 読書記録 */
 
   var MAX_LOG = 6000;
@@ -2247,6 +2306,16 @@
     $('btn-copy').addEventListener('click', copyChapter);
     $('btn-mark').addEventListener('click', function () { toggleMark(0); });
     $('btn-read').addEventListener('click', function () { markRead(S.book, S.chap); });
+    $('btn-keys').addEventListener('click', openKeys);
+    $('btn-keys-close').addEventListener('click', function () { $('keys').hidden = true; });
+    $('keys').addEventListener('click', function (e) {
+      if (e.target === $('keys')) { $('keys').hidden = true; return; }
+      var r = e.target.closest('[data-book]');
+      if (r) {
+        $('keys').hidden = true;
+        go(+r.dataset.book, +r.dataset.chap, +r.dataset.verse);
+      }
+    });
 
     $('btn-stats').addEventListener('click', openStats);
     $('btn-stats-back').addEventListener('click', function () { showView('read'); });
@@ -2392,6 +2461,7 @@
     document.addEventListener('keydown', function (e) {
       var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
       if (e.key === 'Escape') {
+        if (!$('keys').hidden) { $('keys').hidden = true; return; }
         if (!$('plan').hidden) { $('plan').hidden = true; return; }
         if (!$('hymn').hidden) { $('hymn').hidden = true; return; }
         if (!$('pages').hidden) { $('pages').hidden = true; return; }

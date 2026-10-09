@@ -5,14 +5,14 @@
  *
  * 新しい版は勝手に差し替えず、ページから skip-waiting を受け取ってから入れ替える。
  */
-var SHELL = 'bible-shell-v10';
+var SHELL = 'bible-shell-v11';
 var TEXT = 'bible-text-v2';
 
 var PRECACHE = [
   './',
   'index.html',
-  'style.css?v=28',
-  'app.js?v=27',
+  'style.css?v=29',
+  'app.js?v=28',
   'data/meta.js?v=12',
   'manifest.webmanifest',
   'icon-192.png',
