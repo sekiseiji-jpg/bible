@@ -2124,6 +2124,15 @@
      書の中は節数で比例配分して推定する。
      S.pages = { njb: { s: { 40: 1, 41: 58, … }, last: 520 } } */
 
+  /* 同梱のページ対応表。data/pages.js から読み込む。
+     ページ番号は版と判型ごとに違うので、必ず版の名前を添えて扱う。 */
+  var PAGE_PRESETS = { ja: [], njb: [], kjv: [] };
+  var REPO = 'https://github.com/sekiseiji-jpg/bible';
+
+  window.BIBLE_PAGES = function (d) {
+    for (var k in d) if (Array.isArray(d[k])) PAGE_PRESETS[k] = d[k];
+  };
+
   function pageBookList(tr) {
     var t = S.pages[tr];
     if (!t || !t.s) return [];
@@ -2207,13 +2216,41 @@
       return '<option value="' + t.id + '"' + (t.id === tr ? ' selected' : '') + '>' +
         esc(t.full) + '</option>';
     }).join('');
+    $('pages-code').hidden = true;
     renderPagesGrid();
     $('pages').hidden = false;
+  }
+
+  function renderPresetSelect(tr) {
+    var list = PAGE_PRESETS[tr] || [];
+    $('pages-preset-row').hidden = !list.length;
+    if (!list.length) return;
+    $('pages-preset').innerHTML = '<option value="">（自分で入力する）</option>' +
+      list.map(function (p, i) {
+        return '<option value="' + i + '">' + esc(p.ed) + '</option>';
+      }).join('');
+  }
+
+  // 同梱の表を入力欄に流し込む
+  function applyPreset() {
+    var tr = $('pages-tr').value;
+    var i = $('pages-preset').value;
+    if (i === '') return;
+    var p = (PAGE_PRESETS[tr] || [])[+i];
+    if (!p) return;
+    $('pages-ed').value = p.ed || '';
+    [].forEach.call($('pages-grid').querySelectorAll('[data-page]'), function (inp) {
+      inp.value = p.s[inp.dataset.page] || '';
+    });
+    $('pages-last').value = p.last || '';
+    toast('「' + p.ed + '」を読み込みました。保存すると使えます');
   }
 
   function renderPagesGrid() {
     var tr = $('pages-tr').value;
     var t = S.pages[tr] || { s: {}, last: 0 };
+    renderPresetSelect(tr);
+    $('pages-ed').value = t.ed || '';
     $('pages-grid').innerHTML = META.books
       .filter(function (b) { return has(tr, b.id); })
       .map(function (b) {
@@ -2233,7 +2270,8 @@
     });
     var last = parseInt($('pages-last').value, 10) || 0;
 
-    if (Object.keys(map).length) S.pages[tr] = { s: map, last: last };
+    var ed = $('pages-ed').value.trim();
+    if (Object.keys(map).length) S.pages[tr] = { ed: ed, s: map, last: last };
     else delete S.pages[tr];
 
     save();
@@ -2245,11 +2283,81 @@
     if (document.body.dataset.view === 'read') renderChapter(S.verse);
   }
 
+  /* ------- 分け合う ------- */
+
+  function pagePayload() {
+    var tr = $('pages-tr').value;
+    var map = {};
+    [].forEach.call($('pages-grid').querySelectorAll('[data-page]'), function (inp) {
+      var n = parseInt(inp.value, 10);
+      if (n > 0) map[inp.dataset.page] = n;
+    });
+    if (!Object.keys(map).length) return null;
+    return {
+      tr: tr,
+      ed: $('pages-ed').value.trim(),
+      s: map,
+      last: parseInt($('pages-last').value, 10) || 0
+    };
+  }
+
+  function copyPages() {
+    var d = pagePayload();
+    if (!d) { toast('先にページを入力してください'); return; }
+    if (!d.ed) { toast('どの版かを入れてください'); $('pages-ed').focus(); return; }
+    copyText(JSON.stringify(d), 'コードをコピーしました。相手に渡してください');
+  }
+
+  function pastePages() {
+    var box = $('pages-code');
+    if (box.hidden) {
+      box.hidden = false;
+      box.value = '';
+      box.focus();
+      toast('受け取ったコードを貼って、もう一度押してください');
+      return;
+    }
+    var d;
+    try { d = JSON.parse(box.value.trim()); } catch (e) { d = null; }
+    if (!d || !d.s || typeof d.s !== 'object') { toast('コードを読み取れませんでした'); return; }
+
+    if (d.tr && TR[d.tr]) $('pages-tr').value = d.tr;
+    renderPagesGrid();
+    $('pages-ed').value = d.ed || '';
+    [].forEach.call($('pages-grid').querySelectorAll('[data-page]'), function (inp) {
+      inp.value = d.s[inp.dataset.page] || '';
+    });
+    $('pages-last').value = d.last || '';
+    box.hidden = true;
+    toast('取り込みました。保存すると使えます');
+  }
+
+  // 投稿画面を開く。送るかどうかは利用者が決める。
+  function sendPages() {
+    var d = pagePayload();
+    if (!d) { toast('先にページを入力してください'); return; }
+    if (!d.ed) { toast('どの版かを入れてください'); $('pages-ed').focus(); return; }
+
+    var title = 'ページ対応表: ' + d.ed;
+    var body = [
+      '## 版', d.ed, '',
+      '## 訳', TR[d.tr] ? TR[d.tr].full : d.tr, '',
+      '## 表',
+      '```json', JSON.stringify(d, null, 1), '```', '',
+      'この表をアプリに同梱してください。'
+    ].join('\n');
+
+    window.open(REPO + '/issues/new?title=' + encodeURIComponent(title) +
+      '&body=' + encodeURIComponent(body), '_blank', 'noopener,noreferrer');
+    toast('投稿画面を開きました');
+  }
+
   function clearPages() {
     [].forEach.call($('pages-grid').querySelectorAll('[data-page]'), function (inp) {
       inp.value = '';
     });
     $('pages-last').value = '';
+    $('pages-ed').value = '';
   }
 
   function syncPageState() {
@@ -2870,6 +2978,10 @@
       openPages(primaryTr());
     });
     $('pages-tr').addEventListener('change', renderPagesGrid);
+    $('pages-preset').addEventListener('change', applyPreset);
+    $('btn-pages-copy').addEventListener('click', copyPages);
+    $('btn-pages-paste').addEventListener('click', pastePages);
+    $('btn-pages-send').addEventListener('click', sendPages);
     $('btn-pages-save').addEventListener('click', savePages);
     $('btn-pages-clear').addEventListener('click', clearPages);
     $('btn-pages-close').addEventListener('click', function () { $('pages').hidden = true; });
@@ -2979,6 +3091,7 @@
   load();
   document.documentElement.dataset.theme = S.theme;
   busy('聖書データを準備しています…');
+  loadScript('data/pages.js?v=1').catch(function () { /* 無くてもよい */ });
   loadScript('data/meta.js?v=12').then(function () {
     idle();
     start();

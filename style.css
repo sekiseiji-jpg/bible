@@ -601,6 +601,42 @@ body[data-break="off"] .verses .note-row { display: flex; }
   background: var(--surface);
 }
 .page-last { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 14px; }
+
+/* 表を分け合う */
+#pages-ed {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+#pages-ed:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: var(--surface);
+}
+.share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.share-actions .btn { flex: 1 1 auto; padding: 10px 12px; font-size: 13px; }
+.share-code {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+.share-code:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .omni-kind.page { background: var(--text-dim); color: var(--surface); }
 .spacer { flex: 1 1 auto; }
 

@@ -18,7 +18,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=32">
+<link rel="stylesheet" href="style.css?v=33">
 </head>
 <body data-view="read">
 
@@ -421,6 +421,14 @@
         <span class="field-label">どの訳の聖書ですか</span>
         <select id="pages-tr" aria-label="ページを登録する訳"></select>
       </div>
+      <div class="field" id="pages-preset-row" hidden>
+        <span class="field-label">登録済みの版から選ぶ</span>
+        <select id="pages-preset" aria-label="登録済みの版"></select>
+      </div>
+      <div class="field">
+        <span class="field-label">お使いの版<small class="field-hint">判型まで</small></span>
+        <input id="pages-ed" type="text" placeholder="例 新改訳2017 中型" aria-label="版の名前">
+      </div>
       <p class="note">
         お手元の聖書の<b>目次</b>を見ながら、各書が始まるページを入れてください。
         分かるところだけでも構いません（入れた書の間は按分して推定します）。
@@ -436,6 +444,24 @@
         <span class="spacer"></span>
         <button id="btn-pages-save" class="btn primary">保存</button>
       </div>
+
+      <hr>
+      <h3 class="sub-head">ほかの人と分け合う</h3>
+      <p class="note">
+        入力した表は、コードにして渡せます。受け取った人は「取り込む」で使えます。
+      </p>
+      <div class="share-actions">
+        <button id="btn-pages-copy" class="btn">📋 コードをコピー</button>
+        <button id="btn-pages-paste" class="btn">📥 コードを取り込む</button>
+        <button id="btn-pages-send" class="btn">🤝 みんなに送る</button>
+      </div>
+      <textarea id="pages-code" class="share-code" rows="3" hidden
+        placeholder="受け取ったコードをここに貼って「取り込む」を押してください"></textarea>
+      <p class="note dim">
+        「みんなに送る」を押すと、この表を書き込んだ投稿画面が開きます。
+        送っていただいた表は次の更新でアプリに同梱し、同じ版をお使いの方が
+        入力なしで使えるようになります。
+      </p>
     </div>
   </div>
 </div>
@@ -451,6 +477,6 @@
 <div id="toast" class="toast" hidden></div>
 <div id="loading" class="loading" hidden><div class="loading-card"><div class="spinner"></div><p id="loading-text">読み込み中…</p></div></div>
 
-<script src="app.js?v=31"></script>
+<script src="app.js?v=32"></script>
 </body>
 </html>
