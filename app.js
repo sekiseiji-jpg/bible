@@ -1,6 +1,8 @@
 /* ===== 聖書 Bible =====
  * 旧約・新約聖書ビューア
  *   日本語 = 口語訳聖書（1954/1955）
+ *          = 新改訳聖書 新約（1965年版・新約のみ）
+ *          = フリーダム・バイブル（翻訳草案）
  *   英語   = King James Version（1769）
  *
  * 本文は data/<訳>/<巻番号>.js に JSONP 形式で保存してある。
@@ -517,6 +519,8 @@
     ].filter(Boolean).join(' ・ ');
 
     var html = [];
+    var drafts = trs.filter(function (t) { return TR[t].draft && has(t, book); });
+    if (drafts.length) html.push(draftHtml(drafts));
     if (S.pair) {
       var L = S.tr, R = S.tr2;
       var lv = ((DATA[L] || {})[book] || [])[chap - 1] || [];
@@ -604,6 +608,15 @@
     return TR[tr].ruby ? toHtml(text) : esc(text);
   }
 
+  // 校訂されていない訳（翻訳草案）を読んでいるときの断り書き。
+  // 出所を明かせない本文を、校訂された訳と同じ顔で出さないため常に添える。
+  function draftHtml(trs) {
+    var who = trs.map(function (t) { return TR[t].name; }).join('・');
+    return '<p class="note dim draft-note">' + esc(who) +
+      ' は訳者も底本も公表されていない<b>翻訳草案</b>です。読み比べの参考にとどめてください' +
+      '（詳しくは ⚙ 設定 の「出典と著作権」）。</p>';
+  }
+
   // 収録範囲や章立ての違いで本文が出せないときの断り書き
   function missingHtml(side, book) {
     var who = side ? TR[side].full : 'この訳';
@@ -620,7 +633,7 @@
 
     return '<p class="note">この章は<b>' + esc(who) + '</b>にはありません。<br>' +
       'ヨエル書とマラキ書は、口語訳がヘブライ語本文の章区分を採り、' +
-      'KJV が別の区分を採っているため章の数が異なります。</p>';
+      '他の訳が別の区分を採っているため章の数が異なります。</p>';
   }
 
   // 現在位置から d 章ぶん進んだ先。収録していない巻は読み飛ばす。
@@ -1934,7 +1947,7 @@
 
   // オフライン用に全巻を取り寄せる。Service Worker が受け取って貯める。
   function dataUrls() {
-    var urls = ['data/meta.js?v=12'];
+    var urls = ['data/meta.js?v=13'];
     META.translations.forEach(function (t) {
       for (var b = 1; b <= 66; b++) if (has(t.id, b)) urls.push('data/' + t.id + '/' + b + '.js');
     });
@@ -3092,7 +3105,7 @@
   document.documentElement.dataset.theme = S.theme;
   busy('聖書データを準備しています…');
   loadScript('data/pages.js?v=1').catch(function () { /* 無くてもよい */ });
-  loadScript('data/meta.js?v=12').then(function () {
+  loadScript('data/meta.js?v=13').then(function () {
     idle();
     start();
   }, function () {

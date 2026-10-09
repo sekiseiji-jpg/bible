@@ -1146,6 +1146,17 @@ html[data-theme="dark"] .heat.l4 { background: #c99a68; }
 .note.dim { color: var(--text-faint); font-size: 11.5px; }
 .note b { color: var(--text); }
 
+/* 翻訳草案の断り書き（本文の先頭に出る） */
+.draft-note {
+  max-width: 860px;
+  margin: 0 auto 14px;
+  padding: 7px 12px;
+  border-left: 3px dashed var(--line);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-family: var(--font-ui);
+}
+
 /* ---------- PWA ---------- */
 .bar {
   height: 5px;

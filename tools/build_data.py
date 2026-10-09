@@ -7,18 +7,20 @@
     KJV   = King James Version 1769 (Strong 番号付き)
   eBible.org の USFM
     jpn1965_usfm/ = 新改訳新約聖書 1965年版 (新約27巻のみ・パブリックドメイン)
+    jpnm_usfm/    = フリーダム・バイブル (66巻・パブリックドメイン・翻訳草案)
 
 出力:
   data/meta.js          書名・別名・章節構成
   data/ja/<id>.js       口語訳 本文 (66巻)
   data/kjv/<id>.js      KJV 本文 (66巻)
   data/njb/<id>.js      新改訳 本文 (40〜66巻)
+  data/fb/<id>.js       フリーダム・バイブル 本文 (66巻)
 
 file:// から開いても動くよう、fetch ではなく <script> で読める
 JSONP 形式 ( BIBLE_PUT("ja", 1, [[...]]) ) で書き出す。
 
 使い方:
-  python3 tools/build_data.py <JPKJV.json> <KJV.json> <jpn1965_usfm>
+  python3 tools/build_data.py <JPKJV.json> <KJV.json> <jpn1965_usfm> <jpnm_usfm>
 """
 import io
 import json
@@ -132,12 +134,23 @@ BRIDGES = {}          # 現在読み込み中の訳のまとめ書き
 OMITTED = {}          # 底本にないため本文を持たない節
 
 
+def snapshot():
+    """直前に読んだ USFM のまとめ書き・欠落節を取り出す。
+
+    USFM の訳が 2 つ以上あるため、読み終えるたびにここで引き取る。
+    """
+    return {"bridges": dict(BRIDGES), "omitted": dict(OMITTED)}
+
+
 def load_usfm(path):
     """eBible.org の USFM ディレクトリを読む。
 
     まとめ書き（\\v 16-17）は先頭の節に本文を入れ、
     残りの節番号は空にして位置を保つ。範囲は BRIDGES に控える。
     """
+    # 訳ごとに数え直す。持ち越すと別の訳のまとめ書きが混ざる。
+    BRIDGES.clear()
+    OMITTED.clear()
     rows = []
     for name in sorted(os.listdir(path)):
         if not name.lower().endswith(".usfm"):
@@ -286,6 +299,14 @@ def build_meta(sets, marks):
              "note": "新改訳聖書刊行会・新約聖書のみ",
              "bridges": marks["njb"]["bridges"],
              "omitted": marks["njb"]["omitted"]},
+            # 訳者が公表されておらず、底本の記載もない翻訳草案。
+            # 配布元が著作権を設定していないと明記しているため収録できるが、
+            # 校訂された訳と同じようには扱えない。その旨を draft で持つ。
+            {"id": "fb", "lang": "ja", "name": "フリーダム",
+             "full": "フリーダム・バイブル（翻訳草案）", "ruby": False,
+             "note": "訳者不明・eBible.org 配布の草案", "draft": True,
+             "bridges": marks["fb"]["bridges"],
+             "omitted": marks["fb"]["omitted"]},
             {"id": "kjv", "lang": "en", "name": "KJV",
              "full": "King James Version (1769)", "ruby": False,
              "note": "英語"},
@@ -300,17 +321,20 @@ def build_meta(sets, marks):
 
 
 def main():
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 5:
         raise SystemExit(__doc__)
-    sets = {
-        "ja": load(sys.argv[1], clean_ja, "ja"),
-        "kjv": load(sys.argv[2], clean_en, "kjv"),
-        "njb": load(sys.argv[3], clean_plain, "njb",
-                    books=range(40, 67), reader=load_usfm),
-    }
-    marks = {"njb": {"bridges": dict(BRIDGES), "omitted": dict(OMITTED)}}
+    # USFM の訳は読んだ直後に snapshot() で引き取る（下の順序に意味がある）。
+    sets = {}
+    marks = {}
+    sets["ja"] = load(sys.argv[1], clean_ja, "ja")
+    sets["kjv"] = load(sys.argv[2], clean_en, "kjv")
+    sets["njb"] = load(sys.argv[3], clean_plain, "njb",
+                       books=range(40, 67), reader=load_usfm)
+    marks["njb"] = snapshot()
+    sets["fb"] = load(sys.argv[4], clean_plain, "fb", reader=load_usfm)
+    marks["fb"] = snapshot()
 
-    for key in ("ja", "njb", "kjv"):
+    for key in ("ja", "njb", "fb", "kjv"):
         data = sets[key]
         size = write_books(key, data)
         verses = sum(len(ch) for b in data.values() for ch in b)

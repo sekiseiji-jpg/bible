@@ -1,19 +1,19 @@
-/* 聖書 Bible — Service Worker
+﻿/* 聖書 Bible — Service Worker
  *
  * 外枠（HTML/CSS/JS）… キャッシュを返しつつ裏で更新し、次回の起動に反映する
  * 本文データ         … 中身が変わらないのでキャッシュ優先。読んだ巻だけ貯まる
  *
  * 新しい版は勝手に差し替えず、ページから skip-waiting を受け取ってから入れ替える。
  */
-var SHELL = 'bible-shell-v15';
+var SHELL = 'bible-shell-v17';
 var TEXT = 'bible-text-v2';
 
 var PRECACHE = [
   './',
   'index.html',
-  'style.css?v=33',
-  'app.js?v=32',
-  'data/meta.js?v=12',
+  'style.css?v=34',
+  'app.js?v=33',
+  'data/meta.js?v=13',
   'data/pages.js?v=1',
   'manifest.webmanifest',
   'icon-192.png',
@@ -22,7 +22,10 @@ var PRECACHE = [
   'apple-touch-icon.png'
 ];
 
-var IS_TEXT = /\/data\/(ja|njb|kjv)\/\d+\.js$/;
+// 本文データは data/<訳>/<巻>.js。訳の id は列挙しない。
+// 列挙すると、訳を足したときにここを直し忘れ、本文が外枠のキャッシュに
+// 紛れ込んで「本文データを消す」でも消えなくなる。
+var IS_TEXT = /\/data\/[^/]+\/\d+\.js$/;
 
 self.addEventListener('install', function (e) {
   // ここでは skipWaiting しない。利用者が「更新」を押したときに入れ替える。

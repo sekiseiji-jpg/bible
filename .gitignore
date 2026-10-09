@@ -1,3 +1,5 @@
 .DS_Store
+# macOS が別ファイルシステム上に書く付随データ（._app.js など）
+._*
 __pycache__/
 *.pyc

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -18,7 +18,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=33">
+<link rel="stylesheet" href="style.css?v=34">
 </head>
 <body data-view="read">
 
@@ -39,7 +39,7 @@
   <div class="seg" id="tr-seg" role="group" aria-label="表示する訳"></div>
 
   <div class="seg pair-ctl" role="group" aria-label="対訳">
-    <button class="seg-btn" id="btn-pair" aria-pressed="false" title="2つの訳を並べて表示（4）">対訳</button>
+    <button class="seg-btn" id="btn-pair" aria-pressed="false" title="2つの訳を並べて表示（5）">対訳</button>
     <select id="sel-pair" class="pair-sel" aria-label="並べて表示する訳" hidden></select>
   </div>
 
@@ -204,7 +204,7 @@
       </div>
       <div class="bar" id="offline-bar" hidden><span id="offline-fill"></span></div>
       <p class="note dim" id="offline-note">
-        約13MBを端末に保存し、通信がなくても全巻を読めるようにします。
+        約18MBを端末に保存し、通信がなくても全巻を読めるようにします。
       </p>
 
       <hr>
@@ -231,8 +231,8 @@
         <dt>H</dt><dd>賛美歌をさがす</dd>
         <dt>R</dt><dd>読書記録をひらく</dd>
         <dt>Q</dt><dd>聖書クイズをはじめる</dd>
-        <dt>1 2 3</dt><dd>口語訳／新改訳／KJV</dd>
-        <dt>4</dt><dd>対訳の切り替え</dd>
+        <dt>1 2 3 4</dt><dd>口語訳／新改訳／フリーダム／KJV</dd>
+        <dt>5</dt><dd>対訳の切り替え</dd>
         <dt>Esc</dt><dd>閉じる・本文に戻る</dd>
         <dt>⌘/Ctrl + Enter</dt><dd>メモを保存</dd>
       </dl>
@@ -243,6 +243,8 @@
         <dd>口語訳聖書（1954/1955年・日本聖書協会）<br>旧約39巻＋新約27巻の全66巻。ふりがな付き。</dd>
         <dt>新改訳</dt>
         <dd>新改訳聖書 新約（1965年版・新改訳聖書刊行会）<br><b>新約27巻のみ</b>。著作権は2015年末に消滅しパブリックドメインです。</dd>
+        <dt>フリーダム</dt>
+        <dd>フリーダム・バイブル（eBible.org）<br>全66巻。<b>訳者も底本も公表されていない翻訳草案</b>です。読み比べの参考としてお使いください。</dd>
         <dt>KJV</dt>
         <dd>King James Version（1769年）<br>旧約39巻＋新約27巻の全66巻。</dd>
       </dl>
@@ -250,7 +252,7 @@
         本文はすべてアプリ内に保存しているため、オフラインでも全文を読めます。
       </p>
       <p class="note dim">
-        ヨエル書とマラキ書は口語訳とKJVで章の区切り方が異なります（口語訳はヘブライ語本文の区分）。
+        ヨエル書とマラキ書は口語訳と他の訳で章の区切り方が異なります（口語訳はヘブライ語本文の区分）。
         また新改訳にはマルコ7:16-17のように複数の節をまとめて訳した箇所があり、節番号を「16-17」のようにまとめて表示します。
       </p>
 
@@ -262,6 +264,12 @@
         <dt>新改訳聖書 新約（1965年版）</dt>
         <dd>新改訳聖書刊行会。著作権は2015年12月31日に消滅し、パブリックドメインとして公開されています。
           本文データの出典は eBible.org。</dd>
+        <dt>フリーダム・バイブル（翻訳草案）</dt>
+        <dd>eBible.org。配布元が「この聖書翻訳には著作権が設定されていません」と明記しており、
+          パブリックドメインとして公開されています（本文データの日付は2026年8月19日）。<br>
+          ただし<b>訳者が公表されておらず、底本の記載もありません</b>。配布元自身が
+          「これは翻訳の草案です」と断っています。校訂を経た訳と同じようには扱えないため、
+          本文にもその旨を添えています。新改訳2017など著作権が存続する訳とは無関係です。</dd>
         <dt>King James Version (1769)</dt>
         <dd>パブリックドメイン。英国内においてのみ王室特権が存続します。</dd>
       </dl>
@@ -477,6 +485,6 @@
 <div id="toast" class="toast" hidden></div>
 <div id="loading" class="loading" hidden><div class="loading-card"><div class="spinner"></div><p id="loading-text">読み込み中…</p></div></div>
 
-<script src="app.js?v=32"></script>
+<script src="app.js?v=33"></script>
 </body>
 </html>
