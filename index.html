@@ -18,7 +18,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=28">
 </head>
 <body data-view="read">
 
@@ -280,6 +280,54 @@
   </div>
 </div>
 
+<!-- 通読プラン -->
+<div id="plan" class="sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="plan-title">
+    <div class="sheet-head">
+      <h2 id="plan-title">通読プラン</h2>
+      <button id="btn-plan-close" class="icon-btn" aria-label="閉じる">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <span class="field-label">読む範囲</span>
+        <select id="plan-kind" aria-label="読む範囲">
+          <option value="all">聖書全巻（創世記 → 黙示録）</option>
+          <option value="nt">新約聖書だけ</option>
+          <option value="ot">旧約聖書だけ</option>
+          <option value="parallel">旧約と新約を並行して</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <span class="field-label">かける日数</span>
+        <input id="plan-days" type="number" min="1" max="3650" inputmode="numeric" value="365">
+      </div>
+      <div class="plan-presets">
+        <button class="chip" data-days="365">1年</button>
+        <button class="chip" data-days="180">半年</button>
+        <button class="chip" data-days="90">90日</button>
+        <button class="chip" data-days="30">30日</button>
+      </div>
+
+      <div class="field">
+        <span class="field-label">始める日</span>
+        <input id="plan-start" type="date" aria-label="始める日">
+      </div>
+
+      <p class="note" id="plan-preview"></p>
+
+      <div class="note-actions">
+        <button id="btn-plan-stop" class="btn ghost">プランをやめる</button>
+        <span class="spacer"></span>
+        <button id="btn-plan-save" class="btn primary">はじめる</button>
+      </div>
+      <p class="note dim">
+        読んだ記録と連動します。プランの章を「✓ 読んだ」にすると、その日の分が埋まります。
+      </p>
+    </div>
+  </div>
+</div>
+
 <!-- 賛美歌をさがす -->
 <div id="hymn" class="sheet" hidden>
   <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="hymn-title">
@@ -371,6 +419,6 @@
 <div id="toast" class="toast" hidden></div>
 <div id="loading" class="loading" hidden><div class="loading-card"><div class="spinner"></div><p id="loading-text">読み込み中…</p></div></div>
 
-<script src="app.js?v=26"></script>
+<script src="app.js?v=27"></script>
 </body>
 </html>

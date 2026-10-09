@@ -666,6 +666,74 @@ body[data-break="off"] .verses .note-row { display: flex; }
 /* ---------- 読書記録 ---------- */
 .stats { max-width: 860px; margin: 0 auto; padding: 8px 24px 60px; }
 
+/* 通読プラン */
+.plan-card {
+  padding: 14px 16px 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.plan-empty {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  border-left-style: dashed;
+}
+.plan-empty > div { flex: 1 1 200px; font-size: 13.5px; line-height: 1.7; }
+.plan-empty .note { display: inline; }
+
+.plan-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.plan-name { flex: 1 1 auto; font-size: 14px; font-weight: 700; }
+.plan-top .btn { padding: 5px 11px; font-size: 12px; }
+
+.plan-meta {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 8px;
+  font-size: 13px; color: var(--text-dim);
+}
+.plan-meta b { color: var(--accent); font-size: 16px; }
+.plan-diff { font-size: 12px; }
+.plan-diff.late { color: #a8553f; }
+.plan-diff.ahead { color: #5a7a4a; }
+html[data-theme="dark"] .plan-diff.late { color: #d98f74; }
+html[data-theme="dark"] .plan-diff.ahead { color: #9ec08a; }
+
+.plan-sub {
+  margin: 16px 0 6px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--text-faint);
+}
+.plan-range {
+  margin: 0 0 8px;
+  font-family: var(--font-ja);
+  font-size: 15px; font-weight: 600;
+  line-height: 1.7;
+}
+.chip.plan-ch.done {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.plan-presets { display: flex; gap: 6px; flex-wrap: wrap; margin: -2px 0 10px; }
+#plan-days, #plan-start {
+  flex: 0 0 140px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+#plan-days:focus, #plan-start:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: var(--surface);
+}
+
 .stat-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));

@@ -39,7 +39,8 @@
     hymnal: '讃美歌',            // 使っている讃美歌集
     hymnNos: [],                // 最近さがした賛美歌の番号
     autoread: false,            // 開いた章を自動で記録するか
-    log: []                     // 読書記録 [{b, c, t}]
+    log: [],                    // 読書記録 [{b, c, t}]
+    plan: null                  // 通読プラン {kind, days, start}
   };
 
   var LAST = { query: '', tr: 'ja', kind: 'text', hits: [], shown: 0 };
@@ -952,6 +953,7 @@
         S.log.splice(i, 1);
         save();
         syncReadBtn();
+        if (document.body.dataset.view === 'stats') renderStats();
         toast('今日の記録から外しました — ' + refLabel(b, c, 0, 'ja'));
         return;
       }
@@ -960,6 +962,7 @@
     if (S.log.length > MAX_LOG) S.log.splice(0, S.log.length - MAX_LOG);
     save();
     syncReadBtn();
+    if (document.body.dataset.view === 'stats') renderStats();
     toast('読んだ記録に残しました — ' + refLabel(b, c, 0, 'ja'));
   }
 
@@ -990,6 +993,150 @@
         syncReadBtn();
       }
     }, AUTO_MS);
+  }
+
+  /* ------- 通読プラン ------- */
+
+  /* 日割り表は持たず、範囲と日数から毎回計算する。
+     同じ条件なら必ず同じ割り当てになるので、保存するのは 3 つだけでよい。 */
+
+  var PLAN_KIND = {
+    all:      { label: '聖書全巻', from: 1,  to: 66 },
+    ot:       { label: '旧約聖書', from: 1,  to: 39 },
+    nt:       { label: '新約聖書', from: 40, to: 66 },
+    parallel: { label: '旧約と新約を並行' }
+  };
+
+  function chapterList(from, to) {
+    var list = [];
+    for (var b = from; b <= to; b++) {
+      for (var c = 1; c <= canonChapters(b); c++) list.push({ b: b, c: c });
+    }
+    return list;
+  }
+
+  // i 日目（0 始まり）に割り当てる範囲
+  function slice(list, days, i) {
+    var a = Math.floor(i * list.length / days);
+    var z = Math.floor((i + 1) * list.length / days);
+    return list.slice(a, z);
+  }
+
+  function planDay(plan, i) {
+    if (!plan || i < 0 || i >= plan.days) return [];
+    if (plan.kind === 'parallel') {
+      return slice(chapterList(1, 39), plan.days, i)
+        .concat(slice(chapterList(40, 66), plan.days, i));
+    }
+    var k = PLAN_KIND[plan.kind] || PLAN_KIND.all;
+    return slice(chapterList(k.from, k.to), plan.days, i);
+  }
+
+  function planTotal(plan) {
+    if (!plan) return 0;
+    if (plan.kind === 'parallel') return 929 + 260;
+    var k = PLAN_KIND[plan.kind] || PLAN_KIND.all;
+    return chapterList(k.from, k.to).length;
+  }
+
+  function midnight(key) {
+    var p = key.split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]).getTime();
+  }
+
+  // 開始日から数えて今日は何日目か（0 始まり）
+  function planIndex(plan) {
+    if (!plan) return -1;
+    return Math.floor((midnight(dayKey(Date.now())) - midnight(plan.start)) / 86400000);
+  }
+
+  function planStats(plan) {
+    if (!plan) return null;
+    var set = readSet();
+    var idx = planIndex(plan);
+    var doneDays = 0, firstUndone = -1;
+
+    for (var i = 0; i < plan.days; i++) {
+      var day = planDay(plan, i);
+      var ok = day.length > 0 && day.every(function (x) { return set[x.b + '/' + x.c]; });
+      if (ok) doneDays++;
+      else if (firstUndone < 0) firstUndone = i;
+    }
+
+    var today = planDay(plan, idx);
+    var todayLeft = today.filter(function (x) { return !set[x.b + '/' + x.c]; });
+
+    return {
+      idx: idx,
+      today: today,
+      todayLeft: todayLeft,
+      doneDays: doneDays,
+      firstUndone: firstUndone,
+      // 予定より何日進んでいるか（負なら遅れ）
+      diff: doneDays - Math.min(Math.max(idx + 1, 0), plan.days),
+      finished: doneDays >= plan.days,
+      over: idx >= plan.days
+    };
+  }
+
+  function planRangeLabel(list) {
+    if (!list.length) return '—';
+    var out = [];
+    var i = 0;
+    while (i < list.length) {
+      var b = list[i].b, a = list[i].c, z = a;
+      while (i + 1 < list.length && list[i + 1].b === b && list[i + 1].c === z + 1) {
+        i++; z = list[i].c;
+      }
+      out.push(BOOK[b].ja + ' ' + (a === z ? a : a + '-' + z));
+      i++;
+    }
+    return out.join('、');
+  }
+
+  /* ------- プランの設定画面 ------- */
+
+  function openPlan() {
+    var p = S.plan;
+    $('plan-kind').value = p ? p.kind : 'all';
+    $('plan-days').value = p ? p.days : 365;
+    $('plan-start').value = p ? p.start : dayKey(Date.now());
+    $('btn-plan-stop').hidden = !p;
+    $('btn-plan-save').textContent = p ? '変更する' : 'はじめる';
+    planPreview();
+    $('plan').hidden = false;
+  }
+
+  function planPreview() {
+    var days = Math.max(parseInt($('plan-days').value, 10) || 1, 1);
+    var kind = $('plan-kind').value;
+    var total = planTotal({ kind: kind, days: days });
+    var per = (total / days).toFixed(1);
+    $('plan-preview').innerHTML =
+      '<b>' + esc(PLAN_KIND[kind].label) + '</b> ' + total + '章を ' + days + '日で読みます。' +
+      '<br>1日およそ <b>' + per + '章</b>です。';
+  }
+
+  function savePlan() {
+    var days = Math.min(Math.max(parseInt($('plan-days').value, 10) || 1, 1), 3650);
+    S.plan = {
+      kind: $('plan-kind').value,
+      days: days,
+      start: $('plan-start').value || dayKey(Date.now())
+    };
+    save();
+    $('plan').hidden = true;
+    toast('通読プランをはじめました');
+    if (document.body.dataset.view === 'stats') renderStats(); else openStats();
+  }
+
+  function stopPlan() {
+    if (!window.confirm('通読プランをやめますか？\n読んだ記録はそのまま残ります。')) return;
+    S.plan = null;
+    save();
+    $('plan').hidden = true;
+    toast('通読プランをやめました');
+    renderStats();
   }
 
   /* ------- 集計 ------- */
@@ -1100,9 +1247,80 @@
     }).join('');
   }
 
+  function planHtml() {
+    var p = S.plan;
+    if (!p) {
+      return '<div class="plan-card plan-empty">' +
+        '<div><b>通読プランを立てる</b><br>' +
+        '<span class="note dim">読む範囲と日数を決めると、今日読む箇所を示します。</span></div>' +
+        '<button class="btn primary" id="plan-start-btn">はじめる</button></div>';
+    }
+
+    var ps = planStats(p);
+    var set = readSet();
+    var h = [];
+
+    h.push('<div class="plan-card">');
+    h.push('<div class="plan-top">' +
+      '<span class="plan-name">' + esc(PLAN_KIND[p.kind].label) + ' ' + p.days + '日</span>' +
+      '<button class="btn ghost" id="plan-edit-btn">変更</button></div>');
+
+    if (ps.idx < 0) {
+      h.push('<p class="note">' + esc(p.start) + ' から始まります。</p>');
+    } else if (ps.finished) {
+      h.push('<p class="note"><b>通読を終えました。</b>おつかれさまでした。</p>');
+    } else {
+      var dayNo = Math.min(ps.idx + 1, p.days);
+      var state = ps.diff > 0 ? '予定より ' + ps.diff + '日 進んでいます'
+        : ps.diff < 0 ? '予定より ' + (-ps.diff) + '日 遅れています'
+        : '予定どおりです';
+
+      h.push('<div class="plan-meta">' +
+        '<span>第 <b>' + dayNo + '</b> / ' + p.days + ' 日</span>' +
+        '<span class="plan-diff ' + (ps.diff < 0 ? 'late' : ps.diff > 0 ? 'ahead' : '') + '">' +
+        esc(state) + '</span></div>');
+      h.push(barHtml(ps.doneDays, p.days));
+
+      if (ps.over) {
+        h.push('<p class="note">期間を過ぎています。残りは ' +
+          (p.days - ps.doneDays) + '日分です。</p>');
+      }
+
+      h.push('<h4 class="plan-sub">今日の分</h4>');
+      if (!ps.today.length) {
+        h.push('<p class="note dim">今日の割り当てはありません。</p>');
+      } else {
+        h.push('<p class="plan-range">' + esc(planRangeLabel(ps.today)) + '</p>');
+        h.push('<div class="chips">' + ps.today.map(function (x) {
+          var done = !!set[x.b + '/' + x.c];
+          return '<button class="chip plan-ch' + (done ? ' done' : '') +
+            '" data-book="' + x.b + '" data-chap="' + x.c + '">' +
+            (done ? '✓ ' : '') + esc(BOOK[x.b].abja) + ' ' + x.c + '</button>';
+        }).join('') + '</div>');
+        h.push(ps.todayLeft.length
+          ? '<p class="note dim">残り ' + ps.todayLeft.length + '章</p>'
+          : '<p class="note"><b>今日の分は読み終わりました。</b></p>');
+      }
+
+      if (ps.firstUndone >= 0 && ps.firstUndone < ps.idx) {
+        var back = planDay(p, ps.firstUndone);
+        h.push('<h4 class="plan-sub">まだ読んでいない一番古い日（第' + (ps.firstUndone + 1) + '日）</h4>');
+        h.push('<p class="plan-range">' + esc(planRangeLabel(back)) + '</p>');
+        h.push('<div class="chips">' + back.slice(0, 12).map(function (x) {
+          return '<button class="chip" data-book="' + x.b + '" data-chap="' + x.c + '">' +
+            esc(BOOK[x.b].abja) + ' ' + x.c + '</button>';
+        }).join('') + '</div>');
+      }
+    }
+    h.push('</div>');
+    return h.join('');
+  }
+
   function renderStats() {
     var st = computeStats();
     var h = [];
+
+    h.push(planHtml());
 
     h.push('<div class="stat-cards">' +
       statCard('読んだ章', st.done.all, '/ ' + st.total.all) +
@@ -2033,6 +2251,24 @@
     $('btn-stats').addEventListener('click', openStats);
     $('btn-stats-back').addEventListener('click', function () { showView('read'); });
     $('btn-stats-copy').addEventListener('click', copyStats);
+
+    $('stats').addEventListener('click', function (e) {
+      if (e.target.closest('#plan-start-btn, #plan-edit-btn')) openPlan();
+    });
+    $('btn-plan-close').addEventListener('click', function () { $('plan').hidden = true; });
+    $('plan').addEventListener('click', function (e) {
+      if (e.target === $('plan')) $('plan').hidden = true;
+    });
+    $('btn-plan-save').addEventListener('click', savePlan);
+    $('btn-plan-stop').addEventListener('click', stopPlan);
+    $('plan-kind').addEventListener('change', planPreview);
+    $('plan-days').addEventListener('input', planPreview);
+    document.querySelector('.plan-presets').addEventListener('click', function (e) {
+      var c = e.target.closest('[data-days]');
+      if (!c) return;
+      $('plan-days').value = c.dataset.days;
+      planPreview();
+    });
     $('stats').addEventListener('click', function (e) {
       var it = e.target.closest('[data-book]');
       if (it) go(+it.dataset.book, +(it.dataset.chap || 1), 0);
@@ -2156,6 +2392,7 @@
     document.addEventListener('keydown', function (e) {
       var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
       if (e.key === 'Escape') {
+        if (!$('plan').hidden) { $('plan').hidden = true; return; }
         if (!$('hymn').hidden) { $('hymn').hidden = true; return; }
         if (!$('pages').hidden) { $('pages').hidden = true; return; }
         if (!$('note').hidden) { closeNote(); return; }
@@ -2199,6 +2436,7 @@
     if (!S.pages || typeof S.pages !== 'object') S.pages = {};
     if (!Array.isArray(S.hymnNos)) S.hymnNos = [];
     if (!Array.isArray(S.log)) S.log = [];
+    if (S.plan && (!PLAN_KIND[S.plan.kind] || !S.plan.days || !S.plan.start)) S.plan = null;
     S.log = S.log.filter(function (e) { return e && e.b && e.c && e.t; });
     if (!TR[S.tr]) S.tr = TR_JA_DEFAULT;
     if (!TR[S.tr2] || S.tr2 === S.tr) S.tr2 = otherTr(S.tr);
