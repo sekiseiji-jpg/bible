@@ -663,6 +663,96 @@ body[data-break="off"] .verses .note-row { display: flex; }
 .hit-more { text-align: center; padding: 14px; }
 .results-empty { padding: 36px 20px; text-align: center; color: var(--text-faint); }
 
+/* ---------- 聖書クイズ ---------- */
+.quiz { max-width: 720px; margin: 0 auto; padding: 8px 24px 60px; }
+
+.quiz-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 7px;
+  font-size: 12px; color: var(--text-dim);
+}
+.quiz-kind {
+  flex: 1 1 auto; text-align: center;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--accent);
+}
+.quiz-score { font-variant-numeric: tabular-nums; }
+
+.quiz-card {
+  padding: 20px 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.quiz-q { margin: 0 0 14px; font-size: 15.5px; font-weight: 700; line-height: 1.7; }
+.quiz-sub {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--surface-2);
+  font-family: var(--font-ja);
+  font-size: 15px; line-height: 1.95;
+}
+
+.quiz-choices { display: flex; flex-direction: column; gap: 8px; }
+.quiz-choice {
+  width: 100%;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px; line-height: 1.6;
+  text-align: left;
+}
+.quiz-choice:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.quiz-choice.right { border-color: #5a7a4a; background: rgba(120,160,100,.18); font-weight: 700; }
+.quiz-choice.wrong { border-color: #a8553f; background: rgba(190,100,75,.16); }
+.quiz-choice.dim { opacity: .45; }
+.quiz-choice:disabled { cursor: default; }
+
+.quiz-feedback {
+  margin-top: 16px;
+  padding: 13px 15px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13.5px; line-height: 1.75;
+}
+.quiz-feedback.ok b { color: #4a6a3a; }
+.quiz-feedback.ng b { color: #a8553f; }
+html[data-theme="dark"] .quiz-feedback.ok b { color: #9ec08a; }
+html[data-theme="dark"] .quiz-feedback.ng b { color: #d98f74; }
+.quiz-note { margin: 8px 0 10px; font-size: 12.5px; color: var(--text-dim); }
+.quiz-feedback .btn { padding: 6px 12px; font-size: 12px; }
+.quiz-next { width: 100%; margin-top: 14px; padding: 13px; font-size: 15px; }
+
+.quiz-result { text-align: center; }
+.quiz-big { margin: 6px 0 4px; font-size: 42px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+.quiz-big small { font-size: 15px; font-weight: 600; color: var(--text-dim); margin-left: 6px; }
+.quiz-rate { margin: 0 0 12px; font-size: 14px; color: var(--text-dim); }
+.quiz-rate b { color: var(--text); font-size: 17px; }
+.quiz-badge {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 5px 14px;
+  border-radius: 16px;
+  background: var(--mark);
+  font-size: 13px; font-weight: 700;
+}
+.quiz-result .stat-cards { margin: 16px 0; text-align: left; }
+.quiz-actions { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+.quiz-actions .btn { padding: 11px 22px; }
+
+.quiz-hist { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.quiz-hrow { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--text-dim); }
+.quiz-hrow > span:first-child { flex: 0 0 42px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 720px) {
+  .quiz { padding-left: 16px; padding-right: 16px; }
+  .quiz-card { padding: 16px 15px 18px; }
+}
+
 /* ---------- 読書記録 ---------- */
 .stats { max-width: 860px; margin: 0 auto; padding: 8px 24px 60px; }
 

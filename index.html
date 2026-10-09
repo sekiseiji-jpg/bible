@@ -18,7 +18,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body data-view="read">
 
@@ -43,6 +43,7 @@
     <select id="sel-pair" class="pair-sel" aria-label="並べて表示する訳" hidden></select>
   </div>
 
+  <button id="btn-quiz" class="icon-btn" aria-label="聖書クイズ" title="聖書クイズ（Q）">❓</button>
   <button id="btn-stats" class="icon-btn" aria-label="読書記録" title="読書記録（R）">📊</button>
   <button id="btn-hymn" class="icon-btn" aria-label="賛美歌" title="賛美歌をさがす（H）">♪</button>
   <button id="btn-settings" class="icon-btn" aria-label="設定" title="設定">⚙</button>
@@ -105,6 +106,17 @@
         <button id="btn-prev2" class="btn ghost">‹ 前の章</button>
         <button id="btn-next2" class="btn ghost">次の章 ›</button>
       </div>
+    </section>
+
+    <!-- 聖書クイズ -->
+    <section id="view-quiz" class="view">
+      <div class="result-head">
+        <h2>聖書クイズ</h2>
+        <div class="result-filters">
+          <button id="btn-quiz-back" class="btn ghost">本文に戻る</button>
+        </div>
+      </div>
+      <div id="quiz" class="quiz"></div>
     </section>
 
     <!-- 読書記録 -->
@@ -218,6 +230,7 @@
         <dt>B</dt><dd>書名一覧の開閉</dd>
         <dt>H</dt><dd>賛美歌をさがす</dd>
         <dt>R</dt><dd>読書記録をひらく</dd>
+        <dt>Q</dt><dd>聖書クイズをはじめる</dd>
         <dt>1 2 3</dt><dd>口語訳／新改訳／KJV</dd>
         <dt>4</dt><dd>対訳の切り替え</dd>
         <dt>Esc</dt><dd>閉じる・本文に戻る</dd>
@@ -438,6 +451,6 @@
 <div id="toast" class="toast" hidden></div>
 <div id="loading" class="loading" hidden><div class="loading-card"><div class="spinner"></div><p id="loading-text">読み込み中…</p></div></div>
 
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
