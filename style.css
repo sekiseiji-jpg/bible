@@ -727,6 +727,25 @@ html[data-theme="dark"] .quiz-feedback.ng b { color: #d98f74; }
 .quiz-feedback .btn { padding: 6px 12px; font-size: 12px; }
 .quiz-next { width: 100%; margin-top: 14px; padding: 13px; font-size: 15px; }
 
+/* 難しさの選択 */
+.quiz-levels .quiz-q { margin-bottom: 6px; }
+.lv-btn {
+  display: flex; flex-direction: column; gap: 3px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  text-align: left;
+  color: var(--text);
+}
+.lv-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.lv-btn.is-on { border-color: var(--accent); border-width: 2px; padding: 13px 15px; }
+.lv-name { font-size: 15px; font-weight: 700; color: var(--accent); }
+.lv-note { font-size: 12.5px; line-height: 1.65; color: var(--text-dim); }
+.lv-rec { font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
 .quiz-result { text-align: center; }
 .quiz-big { margin: 6px 0 4px; font-size: 42px; font-weight: 700; color: var(--accent); line-height: 1.1; }
 .quiz-big small { font-size: 15px; font-weight: 600; color: var(--text-dim); margin-left: 6px; }
@@ -741,8 +760,8 @@ html[data-theme="dark"] .quiz-feedback.ng b { color: #d98f74; }
   font-size: 13px; font-weight: 700;
 }
 .quiz-result .stat-cards { margin: 16px 0; text-align: left; }
-.quiz-actions { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
-.quiz-actions .btn { padding: 11px 22px; }
+.quiz-actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+.quiz-actions .btn { padding: 11px 18px; }
 
 .quiz-hist { display: flex; flex-direction: column; gap: 6px; text-align: left; }
 .quiz-hrow { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--text-dim); }

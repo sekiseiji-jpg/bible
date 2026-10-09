@@ -41,7 +41,8 @@
     autoread: false,            // 開いた章を自動で記録するか
     log: [],                    // 読書記録 [{b, c, t}]
     plan: null,                 // 通読プラン {kind, days, start}
-    quiz: []                    // クイズの成績 [{t, n, ok, sec}]
+    quiz: [],                   // クイズの成績 [{t, n, ok, sec, lv}]
+    quizLv: 'mid'               // 選んでいる難易度
   };
 
   var LAST = { query: '', tr: 'ja', kind: 'text', hits: [], shown: 0 };
@@ -987,6 +988,27 @@
   var QUIZ_N = 10;
   var quiz = null;
 
+  /* 難易度は「誤答をどれだけ紛らわしくするか」で付ける。
+     初級は他の分類・他の約から誤答を取るので消去法が効く。
+     上級は同じ分類の書、隣り合う章から取るので本文を知らないと解けない。 */
+  var LEVELS = {
+    easy: {
+      label: '初級', note: '誤答は見分けやすいものにします。本文も長めに出ます。',
+      kinds: { '書の要旨': 1, 'どの分類か': 1, 'どの書か': 1, '空欄補充': 1 },
+      books: 'far', refs: 'far', words: 'far', len: 140, hint: true
+    },
+    mid: {
+      label: '中級', note: '同じ約（旧約・新約）の中から誤答を選びます。',
+      kinds: { '書の要旨': 1, 'どの分類か': 1, 'どの書か': 1, '空欄補充': 1, '解説から': 1, '章と節': 1 },
+      books: 'test', refs: 'mid', words: 'mid', len: 90, hint: false
+    },
+    hard: {
+      label: '上級', note: '同じ分類の書、近い章から誤答を選びます。本文は短めです。',
+      kinds: { 'どの書か': 1, '空欄補充': 1, '解説から': 1, '章と節': 1 },
+      books: 'section', refs: 'near', words: 'near', len: 60, hint: false
+    }
+  };
+
   function shuffle(a) {
     for (var i = a.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
@@ -1017,32 +1039,80 @@
     return out;
   }
 
-  function buildQuizPool() {
+  // 難易度に応じた「書名の誤答」の母集団
+  function bookDistractors(bk, mode) {
+    var all = META.books;
+    if (mode === 'section') {
+      var sec = all.filter(function (x) { return x.sid === bk.sid && x.id !== bk.id; });
+      if (sec.length >= 3) return sec.map(function (x) { return x.ja; });
+      mode = 'test';
+    }
+    if (mode === 'test') {
+      return all.filter(function (x) {
+        return x.t === bk.t && x.id !== bk.id && x.sid !== bk.sid;
+      }).map(function (x) { return x.ja; });
+    }
+    // far: 別の約から、分類もばらして選ぶ
+    var other = all.filter(function (x) { return x.t !== bk.t; });
+    var bySec = {};
+    other.forEach(function (x) { if (!bySec[x.sid]) bySec[x.sid] = x; });
+    var out = Object.keys(bySec).map(function (k) { return bySec[k].ja; });
+    if (out.length < 3) {
+      out = out.concat(all.filter(function (x) {
+        return x.id !== bk.id && x.sid !== bk.sid;
+      }).map(function (x) { return x.ja; }));
+    }
+    return out;
+  }
+
+  // 章節の誤答
+  function refDistractors(bk, c, v, mode) {
+    var nCh = canonChapters(bk.id);
+    var out = [];
+    var label = function (rc, rv) { return rc + '章' + rv + '節'; };
+    var want = label(c, v);
+
+    for (var t = 0; t < 80 && out.length < 3; t++) {
+      var rc, rv;
+      if (mode === 'near') {
+        rc = Math.min(Math.max(c + (Math.floor(Math.random() * 5) - 2), 1), nCh);
+        rv = Math.max(v + (Math.floor(Math.random() * 7) - 3), 1);
+      } else if (mode === 'far') {
+        rc = 1 + Math.floor(Math.random() * nCh);
+        rv = 1 + Math.floor(Math.random() * 30);
+      } else {
+        rc = 1 + Math.floor(Math.random() * nCh);
+        rv = 1 + Math.floor(Math.random() * Math.max(verseCount(bk.id, rc, 'ja'), 1));
+      }
+      rv = Math.min(rv, Math.max(verseCount(bk.id, rc, 'ja'), 1));
+      var lab = label(rc, rv);
+      if (lab !== want && out.indexOf(lab) < 0) out.push(lab);
+    }
+    return out;
+  }
+
+  function buildQuizPool(lv) {
+    var L = LEVELS[lv] || LEVELS.mid;
     var qs = [];
     var books = META.books;
     var allSummaries = books.map(function (bk) { return KEYS[String(bk.id)].s; });
+    var allSections = books.map(function (bk) { return bk.sja; })
+      .filter(function (x, i, a) { return a.indexOf(x) === i; });
     var allWords = [];
 
     books.forEach(function (bk) {
-      var entry = KEYS[String(bk.id)];
-      if (!entry) return;
-      entry.v.forEach(function (k) {
-        allWords = allWords.concat(rubyWords(bk.id, k.c, k.v));
-      });
+      var e = KEYS[String(bk.id)];
+      if (e) e.v.forEach(function (k) { allWords = allWords.concat(rubyWords(bk.id, k.c, k.v)); });
     });
     allWords = allWords.filter(function (w, i, a) { return a.indexOf(w) === i; });
+
+    var add = function (kind, q) { if (L.kinds[kind]) { q.kind = kind; qs.push(q); } };
 
     books.forEach(function (bk) {
       var entry = KEYS[String(bk.id)];
       if (!entry) return;
 
-      var sameTest = books.filter(function (x) { return x.t === bk.t && x.id !== bk.id; });
-      var sameSec = sameTest.filter(function (x) { return x.sid === bk.sid; });
-      var near = (sameSec.length >= 3 ? sameSec : sameTest).map(function (x) { return x.ja; });
-
-      // 書の要旨
-      qs.push({
-        kind: '書の要旨',
+      add('書の要旨', {
         q: '「' + bk.ja + '」はどんな書でしょう。',
         choices: [entry.s].concat(pick(allSummaries, 3, entry.s)),
         ans: entry.s,
@@ -1053,77 +1123,77 @@
       entry.v.forEach(function (k) {
         var text = plainVerse(bk.id, k.c, k.v);
         if (!text) return;
-        var short = text.length > 90 ? text.slice(0, 90) + '…' : text;
+        var short = text.length > L.len ? text.slice(0, L.len) + '…' : text;
+        var full = bk.ja + ' ' + k.c + '章' + k.v + '節';
 
-        // どの書のことばか（すべての重要聖句から必ず1問つくる）
-        qs.push({
-          kind: 'どの書か',
+        add('どの書か', {
           q: '次のことばは、どの書にあるでしょう。',
           sub: short,
-          choices: [bk.ja].concat(pick(near, 3)),
+          choices: [bk.ja].concat(pick(bookDistractors(bk, L.books), 3)),
           ans: bk.ja,
-          note: bk.ja + ' ' + k.c + '章' + k.v + '節 — ' + k.n,
+          note: full + ' — ' + k.n,
           ref: { b: bk.id, c: k.c, v: k.v }
         });
 
-        // 書の中のどこか
-        var nCh = canonChapters(bk.id);
-        if (nCh >= 4) {
-          var others = [];
-          for (var t = 0; t < 40 && others.length < 3; t++) {
-            var rc = 1 + Math.floor(Math.random() * nCh);
-            var rv = 1 + Math.floor(Math.random() * Math.max(verseCount(bk.id, rc, 'ja'), 1));
-            var lab = rc + '章' + rv + '節';
-            if (rc === k.c && rv === k.v) continue;
-            if (others.indexOf(lab) < 0) others.push(lab);
-          }
+        add('どの分類か', {
+          q: '次のことばは、どの分類の書にあるでしょう。',
+          sub: short,
+          choices: [bk.sja].concat(pick(allSections, 3, bk.sja)),
+          ans: bk.sja,
+          note: full + '（' + bk.sja + '）— ' + k.n,
+          ref: { b: bk.id, c: k.c, v: k.v }
+        });
+
+        if (canonChapters(bk.id) >= 4) {
+          var others = refDistractors(bk, k.c, k.v, L.refs);
           if (others.length === 3) {
-            qs.push({
-              kind: '章と節',
+            add('章と節', {
               q: 'このことばは「' + bk.ja + '」のどこにあるでしょう。',
               sub: short,
               choices: [k.c + '章' + k.v + '節'].concat(others),
               ans: k.c + '章' + k.v + '節',
-              note: bk.ja + ' ' + k.c + '章' + k.v + '節 — ' + k.n,
+              note: full + ' — ' + k.n,
               ref: { b: bk.id, c: k.c, v: k.v }
             });
           }
         }
 
-        // 解説からあてる
-        qs.push({
-          kind: '解説から',
+        add('解説から', {
           q: '次の説明に当てはまる聖句はどれでしょう。',
           sub: k.n,
-          choices: [bk.ja + ' ' + k.c + ':' + k.v]
-            .concat(pick(books.filter(function (x) { return x.t === bk.t; })
-              .map(function (x) {
-                var e = KEYS[String(x.id)];
-                var kk = e.v[Math.floor(Math.random() * e.v.length)];
-                return x.ja + ' ' + kk.c + ':' + kk.v;
-              }), 3, bk.ja + ' ' + k.c + ':' + k.v)),
+          choices: [bk.ja + ' ' + k.c + ':' + k.v].concat(
+            pick(books.filter(function (x) {
+              return L.books === 'section' ? x.sid === bk.sid : x.t === bk.t;
+            }).map(function (x) {
+              var e2 = KEYS[String(x.id)];
+              var kk = e2.v[Math.floor(Math.random() * e2.v.length)];
+              return x.ja + ' ' + kk.c + ':' + kk.v;
+            }), 3, bk.ja + ' ' + k.c + ':' + k.v)),
           ans: bk.ja + ' ' + k.c + ':' + k.v,
           note: k.n,
           ref: { b: bk.id, c: k.c, v: k.v }
         });
 
-        // 空欄補充
         var words = rubyWords(bk.id, k.c, k.v).filter(function (w) {
-          return text.indexOf(w) >= 0 && w.length >= 2;
+          return short.indexOf(w) >= 0 && w.length >= 2;
         });
         if (words.length) {
           var w = words[Math.floor(Math.random() * words.length)];
           var blanked = short.replace(w, '［　　］');
           if (blanked !== short) {
-            qs.push({
-              kind: '空欄補充',
+            var cand = allWords.filter(function (x) {
+              if (x === w) return false;
+              if (L.words === 'near') return x.length === w.length;
+              if (L.words === 'far') return Math.abs(x.length - w.length) >= 1;
+              return Math.abs(x.length - w.length) <= 1;
+            });
+            if (cand.length < 3) cand = allWords.filter(function (x) { return x !== w; });
+            add('空欄補充', {
               q: '［　　］に入ることばは何でしょう。',
-              sub: blanked,
-              choices: [w].concat(pick(allWords.filter(function (x) {
-                return x !== w && Math.abs(x.length - w.length) <= 1;
-              }), 3)),
+              sub: (L.hint ? '【' + full + '】\n' : '') + blanked,
+              choices: [w].concat(pick(cand, 3)),
               ans: w,
-              note: bk.ja + ' ' + k.c + '章' + k.v + '節 — ' + k.n,
+              note: full + ' — ' + k.n,
               ref: { b: bk.id, c: k.c, v: k.v }
             });
           }
@@ -1134,7 +1204,34 @@
     return qs.filter(function (q) { return q.choices.length === 4; });
   }
 
-  function startQuiz() {
+  // 難易度を選ぶ画面
+  function openQuiz() {
+    showView('quiz');
+    $('view-quiz').scrollTop = 0;
+    quiz = null;
+
+    var h = ['<div class="quiz-card quiz-levels">'];
+    h.push('<p class="quiz-q">難しさを選んでください</p>');
+    h.push('<p class="note dim">どの難しさでも 10 問です。成績は難しさごとに残ります。</p>');
+
+    ['easy', 'mid', 'hard'].forEach(function (lv) {
+      var L = LEVELS[lv];
+      var r = quizRecord(lv);
+      h.push('<button class="lv-btn' + (S.quizLv === lv ? ' is-on' : '') + '" data-lv="' + lv + '">' +
+        '<span class="lv-name">' + esc(L.label) + '</span>' +
+        '<span class="lv-note">' + esc(L.note) + '</span>' +
+        '<span class="lv-rec">' + (r
+          ? r.games + '回　平均 ' + r.avg + '%　最高 ' + r.best.ok + '/' + r.best.n
+          : 'まだ挑戦していません') + '</span></button>');
+    });
+    h.push('</div>');
+    $('quiz').innerHTML = h.join('');
+  }
+
+  function startQuiz(lv) {
+    lv = LEVELS[lv] ? lv : S.quizLv;
+    S.quizLv = lv;
+    save();
     busy('問題を用意しています…');
     loadKeys().then(function () {
       // 重要聖句のある巻の本文をまとめて読む
@@ -1145,7 +1242,7 @@
       }, Promise.resolve());
     }).then(function () {
       idle();
-      var pool = buildQuizPool();
+      var pool = buildQuizPool(lv);
       var used = {};
       var chosen = [];
       shuffle(pool);
@@ -1157,7 +1254,8 @@
         q.choices = shuffle(q.choices.slice());
         chosen.push(q);
       });
-      quiz = { list: chosen, at: 0, ok: 0, picked: null, start: Date.now(), poolSize: pool.length };
+      quiz = { lv: lv, list: chosen, at: 0, ok: 0, picked: null,
+               start: Date.now(), poolSize: pool.length };
       showView('quiz');
       renderQuiz();
       $('view-quiz').scrollTop = 0;
@@ -1174,14 +1272,17 @@
 
     var h = [];
     h.push('<div class="quiz-bar"><span>第 ' + (quiz.at + 1) + ' / ' + quiz.list.length + ' 問</span>' +
-      '<span class="quiz-kind">' + esc(q.kind) + '</span>' +
+      '<span class="quiz-kind">' + esc(LEVELS[quiz.lv].label) + '・' + esc(q.kind) + '</span>' +
       '<span class="quiz-score">正解 ' + quiz.ok + '</span></div>');
     h.push('<div class="bar"><span style="width:' +
       (quiz.at / quiz.list.length * 100) + '%"></span></div>');
 
     h.push('<div class="quiz-card">');
     h.push('<p class="quiz-q">' + esc(q.q) + '</p>');
-    if (q.sub) h.push('<blockquote class="quiz-sub">' + esc(q.sub) + '</blockquote>');
+    if (q.sub) {
+      h.push('<blockquote class="quiz-sub">' +
+        esc(q.sub).replace(/\n/g, '<br>') + '</blockquote>');
+    }
 
     h.push('<div class="quiz-choices">' + q.choices.map(function (c, i) {
       var cls = 'quiz-choice';
@@ -1223,7 +1324,7 @@
     quiz.picked = null;
     if (quiz.at >= quiz.list.length) {
       var sec = Math.round((Date.now() - quiz.start) / 1000);
-      S.quiz.push({ t: Date.now(), n: quiz.list.length, ok: quiz.ok, sec: sec });
+      S.quiz.push({ t: Date.now(), n: quiz.list.length, ok: quiz.ok, sec: sec, lv: quiz.lv });
       if (S.quiz.length > 200) S.quiz.splice(0, S.quiz.length - 200);
       save();
       renderQuizResult();
@@ -1233,8 +1334,8 @@
     $('view-quiz').scrollTop = 0;
   }
 
-  function quizRecord() {
-    var g = S.quiz;
+  function quizRecord(lv) {
+    var g = lv ? S.quiz.filter(function (x) { return (x.lv || 'mid') === lv; }) : S.quiz;
     if (!g.length) return null;
     var rate = function (x) { return x.n ? x.ok / x.n : 0; };
     var best = g.reduce(function (a, b) { return rate(b) > rate(a) ? b : a; });
@@ -1245,7 +1346,8 @@
 
   function renderQuizResult() {
     var last = S.quiz[S.quiz.length - 1];
-    var rec = quizRecord();
+    var lv = (last && last.lv) || S.quizLv;
+    var rec = quizRecord(lv);
     var pctOk = last ? Math.round(last.ok / last.n * 100) : 0;
     var isBest = rec && last && (last.ok / last.n) >= (rec.best.ok / rec.best.n);
 
@@ -1256,7 +1358,7 @@
     h.push('<div class="quiz-card quiz-result">');
     h.push('<p class="quiz-big">' + (last ? last.ok : 0) + ' <small>/ ' +
       (last ? last.n : QUIZ_N) + ' 問正解</small></p>');
-    h.push('<p class="quiz-rate">正解率 <b>' + pctOk + '%</b>' +
+    h.push('<p class="quiz-rate">' + esc(LEVELS[lv].label) + '　正解率 <b>' + pctOk + '%</b>' +
       (last ? '　' + last.sec + '秒' : '') + '</p>');
     if (isBest && rec.games > 1) h.push('<p class="quiz-badge">🎉 自己ベストです</p>');
     h.push('<p class="note">' + word + '</p>');
@@ -1271,9 +1373,10 @@
 
     h.push('<div class="quiz-actions">' +
       '<button class="btn primary" id="quiz-again">もう10問</button>' +
+      '<button class="btn ghost" id="quiz-level">難しさを変える</button>' +
       '<button class="btn ghost" id="quiz-done">やめる</button></div>');
 
-    var recent = S.quiz.slice(-10).reverse();
+    var recent = S.quiz.filter(function (x) { return (x.lv || 'mid') === lv; }).slice(-10).reverse();
     if (recent.length > 1) {
       h.push('<h3 class="stat-head">これまでの成績</h3>');
       h.push('<div class="quiz-hist">' + recent.map(function (g) {
@@ -1699,14 +1802,16 @@
       statCard('今週', st.week, '章') +
       '</div>');
 
-    var qr = quizRecord();
-    if (qr) {
+    if (S.quiz.length) {
       h.push('<h3 class="stat-head">聖書クイズ</h3>');
-      h.push('<div class="stat-cards">' +
-        statCard('挑戦', qr.games, '回') +
-        statCard('平均正解率', qr.avg + '%', '') +
-        statCard('最高', qr.best.ok + '/' + qr.best.n, '') +
-        '</div>');
+      h.push('<div class="stat-rows">' + ['easy', 'mid', 'hard'].map(function (lv) {
+        var r = quizRecord(lv);
+        return '<div class="stat-row"><span class="stat-key">' + esc(LEVELS[lv].label) + '</span>' +
+          (r ? '<div class="prog"><div class="prog-bar"><span style="width:' + r.avg + '%"></span></div>' +
+               '<span class="prog-num">' + r.games + '回　平均 ' + r.avg + '%　最高 ' +
+               r.best.ok + '/' + r.best.n + '</span></div>'
+             : '<span class="prog-num">まだ挑戦していません</span>') + '</div>';
+      }).join('') + '</div>');
     }
 
     h.push('<h3 class="stat-head">進みぐあい</h3>');
@@ -2638,14 +2743,17 @@
     });
 
     $('btn-stats').addEventListener('click', openStats);
-    $('btn-quiz').addEventListener('click', startQuiz);
+    $('btn-quiz').addEventListener('click', openQuiz);
     $('btn-quiz-back').addEventListener('click', function () { showView('read'); });
 
     $('quiz').addEventListener('click', function (e) {
       var c = e.target.closest('[data-choice]');
       if (c) { answerQuiz(+c.dataset.choice); return; }
       if (e.target.closest('#quiz-next')) { nextQuiz(); return; }
-      if (e.target.closest('#quiz-again')) { startQuiz(); return; }
+      var lvb = e.target.closest('[data-lv]');
+      if (lvb) { startQuiz(lvb.dataset.lv); return; }
+      if (e.target.closest('#quiz-again')) { startQuiz(S.quizLv); return; }
+      if (e.target.closest('#quiz-level')) { openQuiz(); return; }
       if (e.target.closest('#quiz-done')) { showView('read'); return; }
       var o = e.target.closest('.quiz-open');
       if (o) { go(+o.dataset.book, +o.dataset.chap, +o.dataset.verse); }
@@ -2811,7 +2919,7 @@
       else if (e.key === 'b' || e.key === 'B') { drawer(document.body.dataset.drawer !== 'on'); }
       else if (e.key === 'h' || e.key === 'H') { openHymn(0); }
       else if (e.key === 'r' || e.key === 'R') { openStats(); }
-      else if (e.key === 'q' || e.key === 'Q') { startQuiz(); }
+      else if (e.key === 'q' || e.key === 'Q') { openQuiz(); }
       else if (e.key >= '1' && e.key <= '9') {
         var n = +e.key - 1;
         if (n < META.translations.length) setTr(META.translations[n].id);
@@ -2840,6 +2948,7 @@
     if (!Array.isArray(S.hymnNos)) S.hymnNos = [];
     if (!Array.isArray(S.log)) S.log = [];
     if (!Array.isArray(S.quiz)) S.quiz = [];
+    if (!LEVELS[S.quizLv]) S.quizLv = 'mid';
     if (S.plan && (!PLAN_KIND[S.plan.kind] || !S.plan.days || !S.plan.start)) S.plan = null;
     S.log = S.log.filter(function (e) { return e && e.b && e.c && e.t; });
     if (!TR[S.tr]) S.tr = TR_JA_DEFAULT;
