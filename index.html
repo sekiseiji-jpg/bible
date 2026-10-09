@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#6b4a2f">
+<meta name="description" content="旧約・新約聖書を書名・章・節から即座に開ける聖書アプリ。日本語（口語訳）と英語（KJV）、対訳表示、全文検索に対応。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="聖書">
+<title>聖書 Bible</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="聖書 Bible — 口語訳・新改訳・King James Version">
+<meta property="og:description" content="旧約・新約聖書を書名・章・節からすぐ開ける聖書アプリ。対訳表示、全文検索、しおりとメモ、オフライン閲覧に対応。">
+<meta property="og:image" content="icon-512.png">
+<meta name="twitter:card" content="summary">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css?v=26">
+</head>
+<body data-view="read">
+
+<header class="app-header">
+  <button id="btn-menu" class="icon-btn only-narrow" aria-label="書名一覧" title="書名一覧（B）">☰</button>
+  <h1 class="brand"><span class="brand-mark">✝</span><span class="brand-text">聖書</span></h1>
+
+  <div class="omni" role="search">
+    <span class="omni-icon" aria-hidden="true">🔍</span>
+    <input id="omni" type="search" autocomplete="off" spellcheck="false"
+           placeholder="ヨハネ3:16 / 詩篇23 / John 3:16 / 語句を検索"
+           aria-label="参照ジャンプ・全文検索" aria-expanded="false"
+           aria-controls="omni-list" role="combobox">
+    <button id="omni-clear" class="omni-clear" aria-label="クリア" hidden>✕</button>
+    <ul id="omni-list" class="omni-list" role="listbox" hidden></ul>
+  </div>
+
+  <div class="seg" id="tr-seg" role="group" aria-label="表示する訳"></div>
+
+  <div class="seg pair-ctl" role="group" aria-label="対訳">
+    <button class="seg-btn" id="btn-pair" aria-pressed="false" title="2つの訳を並べて表示（4）">対訳</button>
+    <select id="sel-pair" class="pair-sel" aria-label="並べて表示する訳" hidden></select>
+  </div>
+
+  <button id="btn-hymn" class="icon-btn" aria-label="賛美歌" title="賛美歌をさがす（H）">♪</button>
+  <button id="btn-settings" class="icon-btn" aria-label="設定" title="設定">⚙</button>
+</header>
+
+<div class="layout">
+  <!-- 書名サイドバー -->
+  <aside id="sidebar" class="sidebar" aria-label="書名一覧">
+    <div class="seg seg-sm" role="group" aria-label="旧約・新約">
+      <button class="seg-btn is-on" data-test="ot">旧約</button>
+      <button class="seg-btn" data-test="nt">新約</button>
+      <button class="seg-btn" data-test="mark">しおり</button>
+    </div>
+    <input id="book-filter" class="book-filter" type="search" placeholder="書名でしぼりこみ" aria-label="書名でしぼりこみ" autocomplete="off">
+    <nav id="book-list" class="book-list"></nav>
+  </aside>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <main class="main">
+    <!-- 書名・章・節セレクタ -->
+    <div class="picker">
+      <label class="pick">
+        <span class="pick-label">書名</span>
+        <select id="sel-book" aria-label="書名"></select>
+      </label>
+      <label class="pick pick-sm">
+        <span class="pick-label">章</span>
+        <select id="sel-chap" aria-label="章"></select>
+      </label>
+      <label class="pick pick-sm">
+        <span class="pick-label">節</span>
+        <select id="sel-verse" aria-label="節"></select>
+      </label>
+      <span class="picker-gap"></span>
+      <button id="btn-prev" class="nav-btn" aria-label="前の章" title="前の章（←）">‹</button>
+      <button id="btn-next" class="nav-btn" aria-label="次の章" title="次の章（→）">›</button>
+    </div>
+
+    <!-- 本文 -->
+    <section id="view-read" class="view is-on" aria-live="polite">
+      <div class="chapter-head">
+        <h2 id="chapter-title">読み込み中…</h2>
+        <div class="chapter-sub"><span id="chapter-sub"></span></div>
+        <div class="chapter-tools">
+          <div class="size-ctl" role="group" aria-label="文字サイズ">
+            <button id="btn-size-down" class="size-btn" aria-label="文字を小さく" title="文字を小さく（−）">A</button>
+            <output id="size-now" class="size-now" aria-live="polite">18</output>
+            <button id="btn-size-up" class="size-btn size-btn-lg" aria-label="文字を大きく" title="文字を大きく（＋）">A</button>
+          </div>
+          <button id="btn-speak" class="tool-btn" title="この章を読み上げ">🔊 読み上げ</button>
+          <button id="btn-copy" class="tool-btn" title="この章をコピー">📋 コピー</button>
+          <button id="btn-mark" class="tool-btn" title="しおりに追加／削除">🔖 しおり</button>
+        </div>
+      </div>
+      <div id="chapter-note" class="note-row" hidden></div>
+      <div id="verses" class="verses"></div>
+      <div class="chapter-foot">
+        <button id="btn-prev2" class="btn ghost">‹ 前の章</button>
+        <button id="btn-next2" class="btn ghost">次の章 ›</button>
+      </div>
+    </section>
+
+    <!-- 全文検索結果 -->
+    <section id="view-search" class="view">
+      <div class="result-head">
+        <h2 id="result-title">検索結果</h2>
+        <div class="result-filters">
+          <div class="seg seg-sm" id="scope-seg" role="group" aria-label="検索範囲">
+            <button class="seg-btn is-on" data-scope="all">全巻</button>
+            <button class="seg-btn" data-scope="ot">旧約</button>
+            <button class="seg-btn" data-scope="nt">新約</button>
+            <button class="seg-btn" data-scope="book">この書</button>
+          </div>
+          <button id="btn-back" class="btn ghost">本文に戻る</button>
+        </div>
+      </div>
+      <div id="results" class="results"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 設定 -->
+<div id="settings" class="sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="sheet-head">
+      <h2 id="settings-title">設定</h2>
+      <button id="btn-settings-close" class="icon-btn" aria-label="閉じる">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <span class="field-label">文字サイズ</span>
+        <input id="opt-size" type="range" min="14" max="30" step="1" value="18">
+        <output id="opt-size-out">18px</output>
+      </div>
+      <div class="field">
+        <span class="field-label">ふりがな（ルビ）<small class="field-hint">口語訳のみ</small></span>
+        <label class="switch"><input id="opt-ruby" type="checkbox"><span></span></label>
+      </div>
+      <div class="field">
+        <span class="field-label">節ごとに改行</span>
+        <label class="switch"><input id="opt-break" type="checkbox" checked><span></span></label>
+      </div>
+      <div class="field">
+        <span class="field-label">配色</span>
+        <select id="opt-theme">
+          <option value="auto">自動（OSに合わせる）</option>
+          <option value="light">ライト</option>
+          <option value="sepia">セピア</option>
+          <option value="dark">ダーク</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">読み上げ速度</span>
+        <input id="opt-rate" type="range" min="0.6" max="1.6" step="0.1" value="1">
+        <output id="opt-rate-out">1.0</output>
+      </div>
+      <hr>
+      <h3 class="sub-head">アプリとして使う</h3>
+      <p class="note" id="pwa-note">
+        ホーム画面やDockに追加すると、ブラウザの枠なしで開けます。
+      </p>
+      <div class="field">
+        <span class="field-label">ホーム画面に追加</span>
+        <button id="btn-install" class="btn" disabled>インストール</button>
+      </div>
+      <div class="field">
+        <span class="field-label">オフライン用に全文を保存<small class="field-hint" id="offline-size"></small></span>
+        <button id="btn-offline" class="btn">保存する</button>
+      </div>
+      <div class="bar" id="offline-bar" hidden><span id="offline-fill"></span></div>
+      <p class="note dim" id="offline-note">
+        約13MBを端末に保存し、通信がなくても全巻を読めるようにします。
+      </p>
+
+      <hr>
+      <h3 class="sub-head">紙の聖書のページ</h3>
+      <p class="note">
+        お手元の聖書の目次から各書の開始ページを登録すると、
+        <b>ページ番号で開けるように</b>なり、本文にもページ数が出ます。
+      </p>
+      <div class="field">
+        <span class="field-label" id="page-state">未登録</span>
+        <button id="btn-pages" class="btn">ページを登録</button>
+      </div>
+
+      <hr>
+      <h3 class="sub-head">最近開いた章</h3>
+      <div id="history" class="chips"></div>
+      <hr>
+      <h3 class="sub-head">キーボード操作</h3>
+      <dl class="keys">
+        <dt>/</dt><dd>検索ボックスへ</dd>
+        <dt>← →</dt><dd>前の章／次の章</dd>
+        <dt>− ＋</dt><dd>文字を小さく／大きく</dd>
+        <dt>B</dt><dd>書名一覧の開閉</dd>
+        <dt>H</dt><dd>賛美歌をさがす</dd>
+        <dt>1 2 3</dt><dd>口語訳／新改訳／KJV</dd>
+        <dt>4</dt><dd>対訳の切り替え</dd>
+        <dt>Esc</dt><dd>閉じる・本文に戻る</dd>
+        <dt>⌘/Ctrl + Enter</dt><dd>メモを保存</dd>
+      </dl>
+      <hr>
+      <h3 class="sub-head">本文について</h3>
+      <dl class="trs">
+        <dt>口語訳</dt>
+        <dd>口語訳聖書（1954/1955年・日本聖書協会）<br>旧約39巻＋新約27巻の全66巻。ふりがな付き。</dd>
+        <dt>新改訳</dt>
+        <dd>新改訳聖書 新約（1965年版・新改訳聖書刊行会）<br><b>新約27巻のみ</b>。著作権は2015年末に消滅しパブリックドメインです。</dd>
+        <dt>KJV</dt>
+        <dd>King James Version（1769年）<br>旧約39巻＋新約27巻の全66巻。</dd>
+      </dl>
+      <p class="note">
+        本文はすべてアプリ内に保存しているため、オフラインでも全文を読めます。
+      </p>
+      <p class="note dim">
+        ヨエル書とマラキ書は口語訳とKJVで章の区切り方が異なります（口語訳はヘブライ語本文の区分）。
+        また新改訳にはマルコ7:16-17のように複数の節をまとめて訳した箇所があり、節番号を「16-17」のようにまとめて表示します。
+      </p>
+
+      <h3 class="sub-head">出典と著作権</h3>
+      <dl class="trs">
+        <dt>口語訳聖書</dt>
+        <dd>日本聖書協会 1954年（新約）／1955年（旧約）。著作権の保護期間は満了しています。
+          本文は改変していません。</dd>
+        <dt>新改訳聖書 新約（1965年版）</dt>
+        <dd>新改訳聖書刊行会。著作権は2015年12月31日に消滅し、パブリックドメインとして公開されています。
+          本文データの出典は eBible.org。</dd>
+        <dt>King James Version (1769)</dt>
+        <dd>パブリックドメイン。英国内においてのみ王室特権が存続します。</dd>
+      </dl>
+      <p class="note dim">
+        いずれの訳も本文に手を加えずそのまま収めています。
+        賛美歌の歌詞と音源は収録しておらず、外部サイトの検索を開くだけです。
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- しおりのメモ -->
+<div id="note" class="sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="note-title">
+    <div class="sheet-head">
+      <h2 id="note-title">メモ</h2>
+      <button id="btn-note-close" class="icon-btn" aria-label="閉じる">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p id="note-ref" class="note-ref"></p>
+      <blockquote id="note-verse" class="note-verse"></blockquote>
+      <textarea id="note-input" rows="8" aria-label="メモ"
+        placeholder="気づいたこと、調べたこと、思いめぐらしたことなどを自由に書けます"></textarea>
+      <div class="note-actions">
+        <button id="btn-note-del" class="btn ghost">メモを消す</button>
+        <span class="spacer"></span>
+        <button id="btn-note-save" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 賛美歌をさがす -->
+<div id="hymn" class="sheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="hymn-title">
+    <div class="sheet-head">
+      <h2 id="hymn-title">♪ 賛美歌をさがす</h2>
+      <button id="btn-hymn-close" class="icon-btn" aria-label="閉じる">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <span class="field-label">讃美歌集</span>
+        <select id="hymn-book" aria-label="讃美歌集">
+          <option value="讃美歌">讃美歌（1954年版）</option>
+          <option value="讃美歌第二編">讃美歌 第二編</option>
+          <option value="讃美歌21">讃美歌21</option>
+          <option value="新聖歌">新聖歌</option>
+          <option value="聖歌">聖歌</option>
+          <option value="こどもさんびか">こどもさんびか</option>
+          <option value="カトリック聖歌">カトリック聖歌</option>
+          <option value="">その他（自分で入力）</option>
+        </select>
+      </div>
+      <div class="field" id="hymn-custom-row" hidden>
+        <span class="field-label">曲集の名前</span>
+        <input id="hymn-custom" type="text" placeholder="例 讃美歌集の名前" aria-label="曲集の名前">
+      </div>
+      <div class="field">
+        <span class="field-label">番号</span>
+        <input id="hymn-no" type="number" min="1" inputmode="numeric" placeholder="例 312" aria-label="賛美歌の番号">
+      </div>
+
+      <div class="hymn-actions">
+        <button class="btn hymn-go" data-kind="sing">🎤 歌入りを聴く</button>
+        <button class="btn hymn-go" data-kind="play">🎹 演奏のみを聴く</button>
+        <button class="btn hymn-go" data-kind="lyric">📄 歌詞をさがす</button>
+      </div>
+
+      <div id="hymn-recent-wrap" hidden>
+        <h3 class="sub-head">最近さがした番号</h3>
+        <div id="hymn-recent" class="chips"></div>
+      </div>
+
+      <p class="note dim">
+        押すと YouTube や Google の検索結果が新しいタブで開きます。
+        讃美歌の歌詞と録音は曲集ごとに著作権があるため、このアプリには収録していません。
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- 紙の聖書のページ対応表 -->
+<div id="pages" class="sheet" hidden>
+  <div class="sheet-card sheet-wide" role="dialog" aria-modal="true" aria-labelledby="pages-title">
+    <div class="sheet-head">
+      <h2 id="pages-title">紙の聖書のページ</h2>
+      <button id="btn-pages-close" class="icon-btn" aria-label="閉じる">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <span class="field-label">どの訳の聖書ですか</span>
+        <select id="pages-tr" aria-label="ページを登録する訳"></select>
+      </div>
+      <p class="note">
+        お手元の聖書の<b>目次</b>を見ながら、各書が始まるページを入れてください。
+        分かるところだけでも構いません（入れた書の間は按分して推定します）。
+        最後に<b>最終ページ</b>も入れると精度が上がります。
+      </p>
+      <div id="pages-grid" class="pages-grid"></div>
+      <div class="field page-last">
+        <span class="field-label">最終ページ</span>
+        <input id="pages-last" type="number" min="1" inputmode="numeric" placeholder="例 520">
+      </div>
+      <div class="note-actions">
+        <button id="btn-pages-clear" class="btn ghost">すべて消す</button>
+        <span class="spacer"></span>
+        <button id="btn-pages-save" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="update-bar" class="update-bar" hidden>
+  <span class="update-msg">新しい版があります</span>
+  <button id="btn-update" class="btn primary" title="更新して再読み込み">
+    <span class="wide-only">更新して再読み込み</span><span class="narrow-only">更新</span>
+  </button>
+  <button id="btn-update-skip" class="icon-btn" aria-label="あとで">✕</button>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<div id="loading" class="loading" hidden><div class="loading-card"><div class="spinner"></div><p id="loading-text">読み込み中…</p></div></div>
+
+<script src="app.js?v=24"></script>
+</body>
+</html>

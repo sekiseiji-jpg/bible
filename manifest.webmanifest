@@ -1,0 +1,25 @@
+{
+  "id": "/seki-bible/",
+  "name": "聖書 Bible — 口語訳・新改訳・King James Version",
+  "short_name": "聖書",
+  "description": "旧約・新約聖書を書名・章・節からすぐ開ける聖書アプリ。口語訳・新改訳（新約）・KJV を収録し、対訳表示、全文検索、しおりとメモ、オフライン閲覧に対応。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#f6f3ee",
+  "theme_color": "#6b4a2f",
+  "categories": ["books", "education", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "詩篇 23篇", "short_name": "詩篇23", "url": "./#19/23" },
+    { "name": "ヨハネによる福音書 3章", "short_name": "ヨハネ3", "url": "./#43/3" },
+    { "name": "創世記 1章", "short_name": "創世記1", "url": "./#1/1" }
+  ]
+}
