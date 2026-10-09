@@ -18,7 +18,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 </head>
 <body data-view="read">
 
@@ -43,6 +43,7 @@
     <select id="sel-pair" class="pair-sel" aria-label="並べて表示する訳" hidden></select>
   </div>
 
+  <button id="btn-stats" class="icon-btn" aria-label="読書記録" title="読書記録（R）">📊</button>
   <button id="btn-hymn" class="icon-btn" aria-label="賛美歌" title="賛美歌をさがす（H）">♪</button>
   <button id="btn-settings" class="icon-btn" aria-label="設定" title="設定">⚙</button>
 </header>
@@ -94,6 +95,7 @@
           <button id="btn-speak" class="tool-btn" title="この章を読み上げ">🔊 読み上げ</button>
           <button id="btn-copy" class="tool-btn" title="この章をコピー">📋 コピー</button>
           <button id="btn-mark" class="tool-btn" title="しおりに追加／削除">🔖 しおり</button>
+          <button id="btn-read" class="tool-btn" title="この章を読んだ記録に残す">✓ 読んだ</button>
         </div>
       </div>
       <div id="chapter-note" class="note-row" hidden></div>
@@ -102,6 +104,18 @@
         <button id="btn-prev2" class="btn ghost">‹ 前の章</button>
         <button id="btn-next2" class="btn ghost">次の章 ›</button>
       </div>
+    </section>
+
+    <!-- 読書記録 -->
+    <section id="view-stats" class="view">
+      <div class="result-head">
+        <h2>読書記録</h2>
+        <div class="result-filters">
+          <button id="btn-stats-copy" class="btn ghost">📋 記録をコピー</button>
+          <button id="btn-stats-back" class="btn ghost">本文に戻る</button>
+        </div>
+      </div>
+      <div id="stats" class="stats"></div>
     </section>
 
     <!-- 全文検索結果 -->
@@ -139,6 +153,10 @@
       <div class="field">
         <span class="field-label">ふりがな（ルビ）<small class="field-hint">口語訳のみ</small></span>
         <label class="switch"><input id="opt-ruby" type="checkbox"><span></span></label>
+      </div>
+      <div class="field">
+        <span class="field-label">読んだ章を自動で記録<small class="field-hint">1分開いたら</small></span>
+        <label class="switch"><input id="opt-autoread" type="checkbox"><span></span></label>
       </div>
       <div class="field">
         <span class="field-label">節ごとに改行</span>
@@ -198,6 +216,7 @@
         <dt>− ＋</dt><dd>文字を小さく／大きく</dd>
         <dt>B</dt><dd>書名一覧の開閉</dd>
         <dt>H</dt><dd>賛美歌をさがす</dd>
+        <dt>R</dt><dd>読書記録をひらく</dd>
         <dt>1 2 3</dt><dd>口語訳／新改訳／KJV</dd>
         <dt>4</dt><dd>対訳の切り替え</dd>
         <dt>Esc</dt><dd>閉じる・本文に戻る</dd>
@@ -352,6 +371,6 @@
 <div id="toast" class="toast" hidden></div>
 <div id="loading" class="loading" hidden><div class="loading-card"><div class="spinner"></div><p id="loading-text">読み込み中…</p></div></div>
 
-<script src="app.js?v=24"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>

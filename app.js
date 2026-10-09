@@ -37,7 +37,9 @@
     marks: [], history: [],
     pages: {},                  // 紙の聖書のページ対応表（訳ごと）
     hymnal: '讃美歌',            // 使っている讃美歌集
-    hymnNos: []                 // 最近さがした賛美歌の番号
+    hymnNos: [],                // 最近さがした賛美歌の番号
+    autoread: false,            // 開いた章を自動で記録するか
+    log: []                     // 読書記録 [{b, c, t}]
   };
 
   var LAST = { query: '', tr: 'ja', kind: 'text', hits: [], shown: 0 };
@@ -568,6 +570,9 @@
     });
     renderChapterNote();
 
+    syncReadBtn();
+    scheduleAutoRead();
+
     var marked = isMarked(book, chap, 0);
     $('btn-mark').classList.toggle('is-on', marked);
     $('btn-mark').title = (marked ? 'この章のしおりを外す' : 'この章にしおりを付ける') +
@@ -910,6 +915,260 @@
       at = i + find.length;
     }
     return out + esc(text.slice(at));
+  }
+
+  /* ------------------------------------------------------ 読書記録 */
+
+  var MAX_LOG = 6000;
+  var autoTimer = null;
+  var AUTO_MS = 60000;          // 1 分開いていたら読んだとみなす
+
+  function dayKey(ts) {
+    var d = new Date(ts);
+    return d.getFullYear() + '-' +
+      ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+      ('0' + d.getDate()).slice(-2);
+  }
+
+  function readSet() {
+    var set = {};
+    S.log.forEach(function (e) { set[e.b + '/' + e.c] = true; });
+    return set;
+  }
+
+  function isRead(b, c) {
+    for (var i = S.log.length - 1; i >= 0; i--) {
+      if (S.log[i].b === b && S.log[i].c === c) return true;
+    }
+    return false;
+  }
+
+  function markRead(b, c) {
+    var today = dayKey(Date.now());
+    // 同じ日に同じ章を何度も数えない
+    for (var i = S.log.length - 1; i >= 0; i--) {
+      var e = S.log[i];
+      if (e.b === b && e.c === c && dayKey(e.t) === today) {
+        S.log.splice(i, 1);
+        save();
+        syncReadBtn();
+        toast('今日の記録から外しました — ' + refLabel(b, c, 0, 'ja'));
+        return;
+      }
+    }
+    S.log.push({ b: b, c: c, t: Date.now() });
+    if (S.log.length > MAX_LOG) S.log.splice(0, S.log.length - MAX_LOG);
+    save();
+    syncReadBtn();
+    toast('読んだ記録に残しました — ' + refLabel(b, c, 0, 'ja'));
+  }
+
+  function readToday(b, c) {
+    var today = dayKey(Date.now());
+    return S.log.some(function (e) {
+      return e.b === b && e.c === c && dayKey(e.t) === today;
+    });
+  }
+
+  function syncReadBtn() {
+    var btn = $('btn-read');
+    var today = readToday(S.book, S.chap);
+    var ever = today || isRead(S.book, S.chap);
+    btn.classList.toggle('is-on', today);
+    btn.textContent = today ? '✓ 今日読んだ' : (ever ? '✓ 読んだ（既読）' : '✓ 読んだ');
+    btn.title = today ? '今日の記録から外す' : 'この章を読んだ記録に残す';
+  }
+
+  function scheduleAutoRead() {
+    clearTimeout(autoTimer);
+    if (!S.autoread) return;
+    var b = S.book, c = S.chap;
+    autoTimer = setTimeout(function () {
+      if (S.book === b && S.chap === c && !readToday(b, c)) {
+        S.log.push({ b: b, c: c, t: Date.now() });
+        save();
+        syncReadBtn();
+      }
+    }, AUTO_MS);
+  }
+
+  /* ------- 集計 ------- */
+
+  function canonChapters(book) { return (BOOK[book].vc.ja || []).length; }
+
+  function computeStats() {
+    var set = readSet();
+    var done = { all: 0, ot: 0, nt: 0 };
+    var total = { all: 0, ot: 0, nt: 0 };
+    var perBook = {};
+
+    META.books.forEach(function (bk) {
+      var n = canonChapters(bk.id);
+      var r = 0;
+      for (var c = 1; c <= n; c++) if (set[bk.id + '/' + c]) r++;
+      perBook[bk.id] = { read: r, total: n };
+      total.all += n; done.all += r;
+      total[bk.t] += n; done[bk.t] += r;
+    });
+
+    // 日ごとの章数
+    var byDay = {};
+    S.log.forEach(function (e) {
+      var k = dayKey(e.t);
+      byDay[k] = (byDay[k] || 0) + 1;
+    });
+
+    // 連続日数（今日か昨日から遡る）
+    var streak = 0, best = 0, run = 0;
+    var days = Object.keys(byDay).sort();
+    var prev = null;
+    days.forEach(function (k) {
+      if (prev && (new Date(k) - new Date(prev)) === 86400000) run++; else run = 1;
+      if (run > best) best = run;
+      prev = k;
+    });
+    var today = dayKey(Date.now());
+    var yest = dayKey(Date.now() - 86400000);
+    if (byDay[today] || byDay[yest]) {
+      var cur = byDay[today] ? today : yest;
+      streak = 0;
+      while (byDay[cur]) {
+        streak++;
+        cur = dayKey(new Date(cur).getTime() - 86400000);
+      }
+    }
+
+    var now = Date.now();
+    var within = function (ms) {
+      return S.log.filter(function (e) { return now - e.t < ms; }).length;
+    };
+
+    return {
+      done: done, total: total, perBook: perBook, byDay: byDay,
+      streak: streak, best: best,
+      today: byDay[today] || 0,
+      week: within(7 * 86400000),
+      month: within(30 * 86400000),
+      events: S.log.length,
+      days: days.length,
+      first: S.log.length ? Math.min.apply(null, S.log.map(function (e) { return e.t; })) : 0
+    };
+  }
+
+  /* ------- 画面 ------- */
+
+  function pct(a, b) { return b ? Math.round(a / b * 100) : 0; }
+
+  function barHtml(read, total, cls) {
+    return '<div class="prog"><div class="prog-bar"><span class="' + (cls || '') +
+      '" style="width:' + pct(read, total) + '%"></span></div>' +
+      '<span class="prog-num">' + read + ' / ' + total + '　' + pct(read, total) + '%</span></div>';
+  }
+
+  function heatHtml(byDay) {
+    var WEEKS = 18;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // 直近の土曜までを右端にする
+    var end = new Date(today.getTime() + (6 - today.getDay()) * 86400000);
+    var cells = [];
+    for (var w = WEEKS - 1; w >= 0; w--) {
+      var col = [];
+      for (var d = 0; d < 7; d++) {
+        var day = new Date(end.getTime() - (w * 7 + (6 - d)) * 86400000);
+        var k = dayKey(day.getTime());
+        var n = byDay[k] || 0;
+        var lv = n === 0 ? 0 : n < 2 ? 1 : n < 4 ? 2 : n < 8 ? 3 : 4;
+        var future = day.getTime() > today.getTime();
+        col.push('<i class="heat l' + lv + (future ? ' future' : '') + '" title="' +
+          k + ' ' + n + '章"></i>');
+      }
+      cells.push('<div class="heat-col">' + col.join('') + '</div>');
+    }
+    return '<div class="heat-grid">' + cells.join('') + '</div>';
+  }
+
+  function bookGridHtml(perBook, test) {
+    return META.books.filter(function (b) { return b.t === test; }).map(function (b) {
+      var p = perBook[b.id];
+      var lv = p.read === 0 ? 0 : p.read >= p.total ? 4 : p.read / p.total > .66 ? 3 :
+        p.read / p.total > .33 ? 2 : 1;
+      return '<button class="bk l' + lv + '" data-book="' + b.id + '" title="' +
+        esc(b.ja) + ' ' + p.read + '/' + p.total + '章">' +
+        '<span class="bk-name">' + esc(b.abja) + '</span>' +
+        '<span class="bk-num">' + p.read + '/' + p.total + '</span></button>';
+    }).join('');
+  }
+
+  function renderStats() {
+    var st = computeStats();
+    var h = [];
+
+    h.push('<div class="stat-cards">' +
+      statCard('読んだ章', st.done.all, '/ ' + st.total.all) +
+      statCard('達成率', pct(st.done.all, st.total.all) + '%', '') +
+      statCard('連続', st.streak, '日') +
+      statCard('最長', st.best, '日') +
+      statCard('今日', st.today, '章') +
+      statCard('今週', st.week, '章') +
+      '</div>');
+
+    h.push('<h3 class="stat-head">進みぐあい</h3>');
+    h.push('<div class="stat-rows">' +
+      '<div class="stat-row"><span class="stat-key">聖書全体</span>' + barHtml(st.done.all, st.total.all) + '</div>' +
+      '<div class="stat-row"><span class="stat-key">旧約聖書</span>' + barHtml(st.done.ot, st.total.ot, 'ot') + '</div>' +
+      '<div class="stat-row"><span class="stat-key">新約聖書</span>' + barHtml(st.done.nt, st.total.nt, 'nt') + '</div>' +
+      '</div>');
+
+    h.push('<h3 class="stat-head">読んだ日（直近18週）</h3>');
+    h.push(heatHtml(st.byDay));
+    h.push('<p class="note dim">記録のある日は ' + st.days + ' 日、のべ ' + st.events + ' 章' +
+      (st.first ? '（' + dayKey(st.first) + ' から）' : '') + '</p>');
+
+    h.push('<h3 class="stat-head">旧約聖書</h3>');
+    h.push('<div class="bk-grid">' + bookGridHtml(st.perBook, 'ot') + '</div>');
+    h.push('<h3 class="stat-head">新約聖書</h3>');
+    h.push('<div class="bk-grid">' + bookGridHtml(st.perBook, 'nt') + '</div>');
+
+    var recent = S.log.slice(-15).reverse();
+    h.push('<h3 class="stat-head">最近読んだ章</h3>');
+    h.push(recent.length
+      ? '<div class="chips">' + recent.map(function (e) {
+          return '<button class="chip" data-book="' + e.b + '" data-chap="' + e.c + '">' +
+            esc(BOOK[e.b].ja + ' ' + e.c) + '<small>' + dayKey(e.t).slice(5) + '</small></button>';
+        }).join('') + '</div>'
+      : '<p class="note dim">まだ記録がありません。本文の「✓ 読んだ」で残せます。</p>');
+
+    $('stats').innerHTML = h.join('');
+  }
+
+  function statCard(label, value, unit) {
+    return '<div class="stat-card"><span class="stat-v">' + value +
+      (unit ? '<small>' + esc(unit) + '</small>' : '') + '</span>' +
+      '<span class="stat-l">' + esc(label) + '</span></div>';
+  }
+
+  function statsText() {
+    var st = computeStats();
+    var L = [];
+    L.push('聖書 読書記録  ' + dayKey(Date.now()));
+    L.push('');
+    L.push('読んだ章	' + st.done.all + ' / ' + st.total.all + '	' + pct(st.done.all, st.total.all) + '%');
+    L.push('旧約聖書	' + st.done.ot + ' / ' + st.total.ot + '	' + pct(st.done.ot, st.total.ot) + '%');
+    L.push('新約聖書	' + st.done.nt + ' / ' + st.total.nt + '	' + pct(st.done.nt, st.total.nt) + '%');
+    L.push('連続	' + st.streak + '日	最長 ' + st.best + '日');
+    L.push('のべ	' + st.events + '章	' + st.days + '日');
+    L.push('');
+    L.push('書名	読んだ章	全章	達成率');
+    META.books.forEach(function (b) {
+      var p = st.perBook[b.id];
+      L.push(b.ja + '	' + p.read + '	' + p.total + '	' + pct(p.read, p.total) + '%');
+    });
+    return L.join('\n');
+  }
+
+  function copyStats() {
+    copyText(statsText(), '読書記録をコピーしました');
   }
 
   /* -------------------------------------------- アプリとして使う */
@@ -1336,6 +1595,13 @@
     document.body.dataset.view = name;
     $('view-read').classList.toggle('is-on', name === 'read');
     $('view-search').classList.toggle('is-on', name === 'search');
+    $('view-stats').classList.toggle('is-on', name === 'stats');
+  }
+
+  function openStats() {
+    renderStats();
+    showView('stats');
+    $('view-stats').scrollTop = 0;
   }
 
   /* --------------------------------------------- しおり・履歴・読み上げ */
@@ -1518,12 +1784,8 @@
     return lines.join('\n');
   }
 
-  function copyChapter() {
-    var text = chapterText();
-    var done = function () { toast('この章をコピーしました'); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else fallback();
+  function copyText(text, msg) {
+    var done = function () { toast(msg); };
 
     function fallback() {
       var ta = el('textarea');
@@ -1535,6 +1797,14 @@
       try { document.execCommand('copy'); done(); } catch (e) { toast('コピーできませんでした'); }
       ta.remove();
     }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else fallback();
+  }
+
+  function copyChapter() {
+    copyText(chapterText(), 'この章をコピーしました');
   }
 
   var speaking = false;
@@ -1591,6 +1861,7 @@
     $('btn-size-up').disabled = S.size >= SIZE_MAX;
     $('opt-ruby').checked = S.ruby;
     $('opt-break').checked = S.brk;
+    $('opt-autoread').checked = S.autoread;
     $('opt-theme').value = S.theme;
     $('opt-rate').value = S.rate;
     $('opt-rate-out').textContent = Number(S.rate).toFixed(1);
@@ -1757,6 +2028,15 @@
     $('btn-speak').addEventListener('click', toggleSpeak);
     $('btn-copy').addEventListener('click', copyChapter);
     $('btn-mark').addEventListener('click', function () { toggleMark(0); });
+    $('btn-read').addEventListener('click', function () { markRead(S.book, S.chap); });
+
+    $('btn-stats').addEventListener('click', openStats);
+    $('btn-stats-back').addEventListener('click', function () { showView('read'); });
+    $('btn-stats-copy').addEventListener('click', copyStats);
+    $('stats').addEventListener('click', function (e) {
+      var it = e.target.closest('[data-book]');
+      if (it) go(+it.dataset.book, +(it.dataset.chap || 1), 0);
+    });
     $('chapter-note').addEventListener('click', function () { openNote(S.book, S.chap, 0); });
 
     $('btn-note-close').addEventListener('click', closeNote);
@@ -1860,6 +2140,11 @@
     $('opt-break').addEventListener('change', function () {
       S.brk = this.checked; applySettings(); save();
     });
+    $('opt-autoread').addEventListener('change', function () {
+      S.autoread = this.checked; save();
+      if (this.checked) scheduleAutoRead(); else clearTimeout(autoTimer);
+      toast(this.checked ? '開いた章を自動で記録します' : '自動記録をやめました');
+    });
     $('opt-theme').addEventListener('change', function () {
       S.theme = this.value; applySettings(); save();
     });
@@ -1876,7 +2161,7 @@
         if (!$('note').hidden) { closeNote(); return; }
         if (!$('settings').hidden) { $('settings').hidden = true; return; }
         if (document.body.dataset.drawer === 'on') { drawer(false); return; }
-        if (document.body.dataset.view === 'search') { showView('read'); return; }
+        if (document.body.dataset.view !== 'read') { showView('read'); return; }
       }
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === '/') { e.preventDefault(); $('omni').focus(); $('omni').select(); }
@@ -1886,6 +2171,7 @@
       else if (e.key === 'ArrowRight') { step(1); }
       else if (e.key === 'b' || e.key === 'B') { drawer(document.body.dataset.drawer !== 'on'); }
       else if (e.key === 'h' || e.key === 'H') { openHymn(0); }
+      else if (e.key === 'r' || e.key === 'R') { openStats(); }
       else if (e.key >= '1' && e.key <= '9') {
         var n = +e.key - 1;
         if (n < META.translations.length) setTr(META.translations[n].id);
@@ -1912,6 +2198,8 @@
 
     if (!S.pages || typeof S.pages !== 'object') S.pages = {};
     if (!Array.isArray(S.hymnNos)) S.hymnNos = [];
+    if (!Array.isArray(S.log)) S.log = [];
+    S.log = S.log.filter(function (e) { return e && e.b && e.c && e.t; });
     if (!TR[S.tr]) S.tr = TR_JA_DEFAULT;
     if (!TR[S.tr2] || S.tr2 === S.tr) S.tr2 = otherTr(S.tr);
     buildTrControls();
